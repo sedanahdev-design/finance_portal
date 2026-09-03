@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة فصل العملات #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة فصل العملات #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة فصل كشف الحساب</h2><p>{{ run.source_file_name }} — {{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'account_statement:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="alert alert-info">
+  <strong>تذكير بشأن الليرة السورية القديمة/الجديدة:</strong>
+  المبالغ الظاهرة في شيت/بطاقة "ليرة سورية قديمة" هي بوحدة الليرة القديمة كما وردت
+  في كشف الحساب (لم تُحوَّل)؛ كل 100 ليرة قديمة = 1 ليرة جديدة (حُذف صفران من يمين الرقم).
+  سطر "ما يعادله بالليرة الجديدة" أسفل كل بطاقة يعرض القيمة المكافئة المحسوبة فعلياً من سعر
+  الصرف المرفق بكل حركة في الملف الأصلي — استخدمه للمقارنة أو الجمع مع بقية العملات، وليس
+  الرصيد بعملته الأصلية مباشرةً.
+</div>
+
+<div class="row g-3 mb-4">
+  {% for code, s in run.summary_json.items %}
+  <div class="col-md-4">
+    <div class="stat-tile">
+      <div class="label mb-1">{{ s.label }} ({{ s.count }} حركة)</div>
+      <div class="num" style="font-size:1.1rem;">مدين: {{ s.total_debit|floatformat:2|intcomma }}</div>
+      <div class="num" style="font-size:1.1rem;">دائن: {{ s.total_credit|floatformat:2|intcomma }}</div>
+      <div class="fw-bold mt-1" style="color:var(--primary);">الرصيد (بعملته الأصلية): {{ s.balance|floatformat:2|intcomma }}</div>
+      <div class="text-muted small mt-1">ما يعادله بالليرة الجديدة: {{ s.balance_syp_new_equivalent|floatformat:2|intcomma }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<ul class="nav nav-tabs mb-3">
+  {% for code, s in run.summary_json.items %}
+  <li class="nav-item"><button class="nav-link {% if forloop.first %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-{{ code }}">{{ s.label }} ({{ s.count }})</button></li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+  {% for code, rows in preview.items %}
+  <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="tab-{{ code }}">
+    <div class="table-wrap">
+      <table class="table-clean">
+        <thead><tr><th>التاريخ</th><th>رقم السند</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.date }}</td><td>{{ row.voucher_no }}</td><td>{{ row.narration }}</td>
+            <td>{{ row.debit|floatformat:2|intcomma }}</td><td>{{ row.credit|floatformat:2|intcomma }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

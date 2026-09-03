@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}مطابقة جرد الضريبة{% endblock %}
+{% block page_title %}مطابقة جرد الضريبة{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>مطابقة جرد الضريبة</h2>
+    <p>ارفع ملف جرد "أمين 9" (فوق 3 قطع / تحت 3 قطع) وملف حركة مبيعات "أمين 8" لاستخراج الكمية التي يمكن بيعها فعلياً لكل مادة، موزّعة على الصيدليات، دون تجاوز سقف أمين 9.</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <strong>ملاحظة حول طريقة الاحتساب (محدَّثة بطلب المستخدم):</strong> ملف "فوق 3 قطع" يمثّل سقف أمين 9 لكل مادة (رقم إجمالي واحد بلا تفصيل صيدليات). ملف حركة المبيعات يمثّل تفصيل أمين 8 الحقيقي الكامل لكل مادة، موزّعاً على الصيدليات (عمود "اسم الزبون" = اسم الصيدلية). إن كان إجمالي أمين 8 لمادة ما أقل من أو يساوي سقف أمين 9، تُعتمد كل الصيدليات كاملة. أما إن تجاوز الإجمالي السقف، فيتم اختيار <strong>أفضل مزيج من الصيدليات (كل واحدة بكامل كميتها بلا تجزئة) بحيث يكون المجموع أقرب ما يمكن للسقف دون تجاوزه — أقصى استخدام ممكن</strong>، وهي الطريقة التي اخترتها صراحة من بين ثلاثة بدائل. الصيدليات المستبعدة تظهر بوضوح في الملاحظات وفي شيت "التوزيع على الصيدليات" داخل ملف النتيجة. ملف "تحت 3 قطع" يبقى فحصاً إعلامياً فقط كما كان.
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'tax_inventory:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.over3_file.label }}</label>
+        {{ form.over3_file }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.under3_file.label }}</label>
+        {{ form.under3_file }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.sales_file.label }}</label>
+        {{ form.sales_file }}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> بدء المطابقة</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>مواد أمين 9</th><th>لها مبيعات</th><th>تجاوزت السقف</th><th>الكمية المسموح بيعها</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ r.items_over3 }}</td><td>{{ r.items_matched_in_sales }}</td><td>{{ r.capped_items_count }}</td><td>{{ r.total_final_qty }}</td>
+        <td><a href="{% url 'tax_inventory:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

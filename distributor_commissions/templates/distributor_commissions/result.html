@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة عمولة التحصيل #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة عمولة التحصيل #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة عمولة تحصيل الموزعين الداخليين</h2><p>{{ run.ledger_file_name }} — {{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'distributor_commissions:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+{% if run.flagged_rows_count %}
+<div class="alert alert-warning">⚠ يوجد {{ run.flagged_rows_count }} حركة تحتاج مراجعة يدوية (اسم أو فئة غير معروفة) — راجع شيت «حركات للمراجعة» داخل الملف المُصدَّر قبل اعتماد الأرقام نهائياً.</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.distributors_count }}</div><div class="label">عدد الموزعين</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.rows_count }}</div><div class="label">حركات التحصيل النقدي</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.return_rows_count }}</div><div class="label">حركات المرتجع</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.total_commission|floatformat:2|intcomma }}</div><div class="label">الصافي النهائي</div></div></div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.collection_total|floatformat:2|intcomma }}</div><div class="label">إجمالي عمولة التحصيل</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.return_total|floatformat:2|intcomma }}</div><div class="label">إجمالي خصم المرتجعات</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.warehouse_excluded_count }}</div><div class="label">حركات مستودع مستبعدة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.flagged_rows_count }}</div><div class="label">حركات للمراجعة</div></div></div>
+</div>
+
+<p class="text-muted small mb-2">اضغط <i class="bi bi-chevron-down"></i> بجانب أي موزع لعرض تفصيل عمولة التحصيل حسب الحالة (منفرد / مع شخص آخر / مجموعة). التفصيل الكامل (مع المرتجعات) متوفر في شيت «تفصيل كل موزع حسب الحالة» داخل الملف المُصدَّر.</p>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th style="width:2.5rem;"></th><th>اسم الموزع</th><th>عمولة التحصيل</th><th>خصم المرتجعات</th><th>الصافي</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr>
+        <td>
+          {% if row.situations %}
+          <button class="btn btn-sm btn-outline-soft" type="button" data-bs-toggle="collapse" data-bs-target="#sit-{{ forloop.counter }}" aria-expanded="false">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          {% endif %}
+        </td>
+        <td>{{ row.name }}</td>
+        <td>{{ row.collection|floatformat:2|intcomma }}</td>
+        <td>{{ row.returns|floatformat:2|intcomma }}</td>
+        <td class="fw-bold">{{ row.commission|floatformat:2|intcomma }}</td>
+      </tr>
+      {% if row.situations %}
+      <tr class="collapse" id="sit-{{ forloop.counter }}">
+        <td></td>
+        <td colspan="4" class="p-0">
+          <table class="table-clean mb-0">
+            <thead><tr><th>الحالة</th><th>عدد الحركات</th><th>إجمالي المبلغ</th><th>العمولة (تحصيل نقدي فقط)</th></tr></thead>
+            <tbody>
+              {% for s in row.situations %}
+              <tr>
+                <td>{{ s.label }}</td>
+                <td>{{ s.count }}</td>
+                <td>{{ s.amount|floatformat:2|intcomma }}</td>
+                <td>{{ s.commission|floatformat:2|intcomma }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </td>
+      </tr>
+      {% endif %}
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if run.distributors_count > preview|length %}
+<p class="text-muted small mt-2">تُعرض أول {{ preview|length }} موزع فقط. القائمة الكاملة داخل ملف الإكسل المُصدَّر.</p>
+{% endif %}
+{% endblock %}

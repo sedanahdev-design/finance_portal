@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-finance_portal}
+      POSTGRES_USER: ${DB_USER:-finance_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-finance_dev_pw}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-finance_admin} -d ${DB_NAME:-finance_portal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      DB_NAME: ${DB_NAME:-finance_portal}
+      DB_USER: ${DB_USER:-finance_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-finance_dev_pw}
+      DB_HOST: db
+      DB_PORT: "5432"
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "${WEB_PORT:-8010}:8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/login/', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  # نفق Cloudflare سريع للاختبار فقط — لا يعمل إلا عند تشغيله صراحةً عبر:
+  #   docker compose --profile tunnel up -d
+  # يعطي رابط trycloudflare.com عشوائياً مؤقتاً يظهر في سجلاته:
+  #   docker compose logs -f cloudflared
+  # (رابط trycloudflare.com موثوق تلقائياً في إعدادات Django، فلا حاجة لتحديثه
+  # يدوياً في .env مهما تغيّر عند كل إعادة تشغيل)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://web:8000
+    depends_on:
+      - web
+    profiles:
+      - tunnel
+
+volumes:
+  postgres_data:
+  media_data:
+  static_data:

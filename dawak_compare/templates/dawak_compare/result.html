@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة مطابقة دواك #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة مطابقة دواك #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة مطابقة دواك</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'dawak_compare:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+{% if run.mismatched_count %}
+<div class="card-surface mb-4" style="border-right: 5px solid var(--danger);">
+  <span class="status-pill status-error" style="font-size:1rem;"><i class="bi bi-exclamation-triangle-fill"></i> توجد صيدليات غير متطابقة</span>
+  <p class="mt-3 mb-0 text-muted">{{ run.mismatched_count }} من أصل {{ run.pharmacies_count }} صيدلية فيها فرق بين الحسم والمرتجع الوهمي.</p>
+</div>
+{% else %}
+<div class="card-surface mb-4" style="border-right: 5px solid var(--success);">
+  <span class="status-pill status-ok" style="font-size:1rem;"><i class="bi bi-check-circle-fill"></i> جميع الصيدليات متطابقة</span>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.pharmacies_count }}</div><div class="label">عدد الصيدليات</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_count }}</div><div class="label">متطابقة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.mismatched_count }}</div><div class="label">غير متطابقة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.hiba_balance|floatformat:2|intcomma }}</div><div class="label">رصيد كشف حساب هبة</div></div></div>
+</div>
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>رمز الصيدلية</th><th>اسم الصيدلية</th><th>إجمالي البون (مدين)</th><th>إجمالي المرتجع الوهمي (دائن)</th><th>الفرق</th><th>الحالة</th></tr></thead>
+    <tbody>
+      {% for p in preview %}
+      <tr class="{% if not p.matched %}row-diff{% else %}row-matched{% endif %}">
+        <td>{{ p.code }}</td><td>{{ p.name }}</td>
+        <td>{{ p.total_debit|floatformat:2|intcomma }}</td><td>{{ p.total_credit|floatformat:2|intcomma }}</td>
+        <td class="fw-bold">{{ p.difference|floatformat:2|intcomma }}</td>
+        <td>{% if p.matched %}<span class="status-pill status-ok">مطابق</span>{% else %}<span class="status-pill status-error">غير مطابق</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h5 class="fw-bold mb-3 mt-4">مطابقة الدفعات دواك⇄هبة (على مستوى الحركة الفردية)</h5>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.payments_dawak_count }}</div><div class="label">حركات دواك</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.payments_hiba_count }}</div><div class="label">حركات هبة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.payments_matched_count }}</div><div class="label">متطابقة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:#B45309;">{{ run.payments_found_diff_date_count }}</div><div class="label">موجودة بتاريخ مختلف</div></div></div>
+</div>
+
+{% if run.payments_found_diff_date_count %}
+<div class="alert alert-warning" style="background:#FFF7E0;border-color:#FDE68A;">
+  <strong>{{ run.payments_found_diff_date_count }}</strong> دفعة (بإجمالي {{ run.payments_found_diff_date_amount|floatformat:2|intcomma }}) موجودة بنفس المبلغ عند الطرف الآخر لكنها لم تُطابَق تلقائياً بسبب اختلاف التاريخ — <strong>لا تُحسب فرقاً حقيقياً</strong>، لكن يُستحسن التحقق اليدوي منها. القائمة الكاملة (مع التاريخين) داخل شيت "موجود بتاريخ مختلف" في ملف النتيجة.
+</div>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>المبلغ</th><th>طرف دواك (الصيدلية والتاريخ)</th><th>طرف هبة (التاريخ)</th><th>ملاحظات</th></tr></thead>
+    <tbody>
+      {% for p in payments_preview %}
+      <tr class="row-outperiod">
+        <td>{{ p.amount|floatformat:2|intcomma }}</td><td>{{ p.dawak_side }}</td><td>{{ p.hiba_side }}</td><td>{{ p.note }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if run.payments_true_diff_count %}
+<div class="alert alert-danger">
+  توجد {{ run.payments_true_diff_count }} حركة دفع (بإجمالي {{ run.payments_true_diff_amount|floatformat:2|intcomma }}) بلا أي مقابل بنفس المبلغ عند الطرف الآخر إطلاقاً — فرق حقيقي. التفصيل الكامل داخل شيت "فرق حقيقي دواك⇄هبة" في ملف النتيجة.
+</div>
+{% endif %}
+{% endblock %}

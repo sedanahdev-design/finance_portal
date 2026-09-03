@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}مطابقة دواك{% endblock %}
+{% block page_title %}مطابقة دواك{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>مطابقة دواك</h2>
+    <p>ارفع ملف "مشروع دواك" وملف "كشف حساب هبة" لمقارنة حسم كل صيدلية (بون) مقابل ما تم ردّه (مرتجع وهمي)، وتحديد أي صيدلية فيها فرق.</p>
+  </div>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'dawak_compare:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.dawak_file.label }}</label>
+        {{ form.dawak_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.hiba_file.label }}</label>
+        {{ form.hiba_file }}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> بدء المطابقة</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>الصيدليات</th><th>متطابقة</th><th>غير متطابقة</th><th>دفعات بتاريخ مختلف</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.pharmacies_count }}</td>
+        <td>{{ r.matched_count }}</td><td>{{ r.mismatched_count }}</td><td>{{ r.payments_found_diff_date_count }}</td>
+        <td><a href="{% url 'dawak_compare:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

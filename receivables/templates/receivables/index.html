@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}مطابقة الذمم{% endblock %}
+{% block page_title %}مطابقة الذمم مع قسم التوزيع{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>مطابقة الذمم مع قسم التوزيع</h2>
+    <p>ارفع ملف "ذمم لدى قسم التوزيع"، وسيتم استخراج رقم البيان من كل حركة وتجميع كل الدفعات الدائنة المرتبطة به ومقارنتها بالمدين.</p>
+  </div>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'receivables:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label class="form-label fw-bold">{{ form.ledger_file.label }}</label>
+    {{ form.ledger_file }}
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> بدء المطابقة</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>مجموعات</th><th>متطابقة</th><th>غير متطابقة</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.groups_count }}</td>
+        <td>{{ r.matched_groups }}</td><td>{{ r.mismatched_groups }}</td>
+        <td><a href="{% url 'receivables:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

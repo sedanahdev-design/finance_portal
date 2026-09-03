@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}المستخدمون{% endblock %}
+{% block page_title %}المستخدمون والصلاحيات{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>المستخدمون والصلاحيات</h2>
+    <p>إدارة حسابات الموظفين وضبط وصولهم لكل وحدة من الحلول التسعة.</p>
+  </div>
+  <a href="{% url 'core:user_new' %}" class="btn btn-primary-soft"><i class="bi bi-person-plus"></i> مستخدم جديد</a>
+</div>
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead>
+      <tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>المسمى الوظيفي</th><th>الحالة</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.get_full_name|default:"—" }}</td>
+        <td>{{ u.username }}</td>
+        <td>
+          {% if u.is_supervisor %}
+            <span class="status-pill status-ok">مشرف القسم</span>
+          {% else %}
+            <span class="status-pill status-warn">موظف</span>
+          {% endif %}
+        </td>
+        <td>{{ u.job_title|default:"—" }}</td>
+        <td>
+          {% if u.is_active_employee %}
+            <span class="status-pill status-ok">فعّال</span>
+          {% else %}
+            <span class="status-pill status-error">موقوف</span>
+          {% endif %}
+        </td>
+        <td class="text-nowrap">
+          <a href="{% url 'core:user_edit' u.pk %}" class="btn btn-sm btn-outline-soft">بيانات</a>
+          <a href="{% url 'core:user_access' u.pk %}" class="btn btn-sm btn-outline-soft">الصلاحيات</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

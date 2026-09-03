@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}تنظيف داتا{% endblock %}
+{% block page_title %}تنظيف داتا{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>تنظيف داتا</h2>
+    <p>ارفع ملفات المبيعات والمرتجعات (إلزامية)، وملف الحسم الممنوح وملفي الذمم (اختيارية)، ليتم تحويلها جميعاً لصيغة موحّدة نظيفة بنفس تنسيق ملف "تجميع معدل".</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  ملاحظة: عمود "الكتلة" (المنطقة الجغرافية) يحتاج جدول ربط بين اسم المندوب/مركز الكلفة والمنطقة غير متوفر ضمن الملفات الحالية، لذلك يبقى فارغاً حالياً بدل تخمين قيمته. عند توفر هذا الجدول يمكن ربطه لاحقاً لتعبئته تلقائياً.
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'data_cleaning:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.sales_file.label }}</label>
+        {{ form.sales_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.returns_file.label }}</label>
+        {{ form.returns_file }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.discount_file.label }} <span class="text-muted">(اختياري)</span></label>
+        {{ form.discount_file }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.receivables_file_1.label }} <span class="text-muted">(اختياري)</span></label>
+        {{ form.receivables_file_1 }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.receivables_file_2.label }} <span class="text-muted">(اختياري)</span></label>
+        {{ form.receivables_file_2 }}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> تنظيف البيانات</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>إجمالي السطور</th><th>مبيعات</th><th>مرتجعات</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.total_rows }}</td>
+        <td>{{ r.sales_rows }}</td><td>{{ r.returns_rows }}</td>
+        <td><a href="{% url 'data_cleaning:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

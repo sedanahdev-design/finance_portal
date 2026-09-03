@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}سجل التدقيق{% endblock %}
+{% block page_title %}سجل التدقيق{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>سجل التدقيق</h2>
+    <p>كل عملية رفع أو تشغيل أو تصدير داخل النظام مسجّلة هنا لضمان إمكانية التتبع.</p>
+  </div>
+</div>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الوحدة</th><th>التفاصيل</th><th>IP</th></tr></thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+        <td>{{ log.user|default:"—" }}</td>
+        <td>{{ log.get_action_display }}</td>
+        <td>{{ log.module_code|default:"—" }}</td>
+        <td>{{ log.message }}</td>
+        <td>{{ log.ip_address|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

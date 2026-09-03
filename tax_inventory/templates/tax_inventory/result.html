@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة مطابقة الجرد #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة مطابقة الجرد #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة مطابقة جرد الضريبة</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'tax_inventory:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.items_over3 }}</div><div class="label">مواد أمين 9</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.items_matched_in_sales }}</div><div class="label">مواد لها مبيعات (أمين 8)</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.total_sold_qty|floatformat:0|intcomma }}</div><div class="label">إجمالي أمين 8 الحقيقي</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--warning);">{{ run.capped_items_count }}</div><div class="label">مواد تجاوزت السقف</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.total_final_qty|intcomma }}</div><div class="label">الكمية المسموح بيعها</div></div></div>
+</div>
+
+<div class="alert alert-info">
+  <strong>طريقة الاحتساب:</strong> لكل مادة، إن كان إجمالي أمين 8 (كل الصيدليات) ≤ سقف أمين 9 تُعتمد كل الصيدليات كاملة. أما إن تجاوز السقف، فيُختار أفضل مزيج من الصيدليات (كل واحدة بكامل كميتها) بحيث يكون المجموع أقرب ما يمكن للسقف دون تجاوزه (أقصى استخدام ممكن). التفصيل الكامل لكل صيدلية داخل شيت "التوزيع على الصيدليات" في ملف النتيجة.
+  {% if run.approx_items_count %}<br><strong>تنبيه:</strong> {{ run.approx_items_count }} مادة كان عدد صيدلياتها/سقفها كبيراً جداً فاستُخدم لها تقريب (الأكبر أولاً) بدل الحل الأمثل الكامل — راجع ملاحظاتها.{% endif %}
+</div>
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>رمز المادة</th><th>اسم المادة</th><th>سقف أمين 9</th><th>إجمالي أمين 8</th><th>الكمية المسموح بيعها</th><th>تجاوز السقف؟</th><th>ملاحظات</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr class="{% if row.note %}row-outperiod{% endif %}">
+        <td>{{ row.code }}</td><td>{{ row.name }}</td><td>{{ row.inventory_qty }}</td>
+        <td>{{ row.sold_qty }}</td><td class="fw-bold">{{ row.final_qty }}</td>
+        <td>{% if row.is_capped %}نعم{% else %}لا{% endif %}</td><td>{{ row.note }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if run.items_over3 > preview|length %}
+<p class="text-muted small mt-2">تُعرض أول {{ preview|length }} مادة فقط. القائمة الكاملة داخل ملف الإكسل المُصدَّر.</p>
+{% endif %}
+{% endblock %}

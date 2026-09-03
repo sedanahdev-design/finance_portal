@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}عمولات المندوبين{% endblock %}
+{% block page_title %}عمولات المندوبين{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>عمولات المندوبين</h2>
+    <p>ارفع ملفات حركة المبيعات والمرتجعات وجدول نسب العمولات، ليتم احتساب عمولة كل مندوب/كول سنتر حسب الشركة، على صافي المبيعات بعد طرح المرتجعات الحقيقية.</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <strong>ملاحظات مهمة حول درجة الدقة:</strong>
+  <ul class="mb-0">
+    <li>احتساب عمولة كل مندوب/كول سنتر حسب الشركة (مبيعات × نسبة الشركة)، وعمولة المعقمات 7% الثابتة عند تحقيق التارغت، ونسبة سارة/دواك الخاصة 0.5% — تم التحقق من هذه القواعد رقمياً بتطابق تام (100%) على بيانات شهر كامل حقيقي.</li>
+    <li>قاعدة المبيعات المُحتسب عليها العمولة هي "صافي المبيعات" (المبيعات ناقص فواتير المرتجع الحقيقية لنفس المندوب/الشركة) — لا يوجد أي خصم نسبة إضافي منفصل على المرتجعات فوق ذلك.</li>
+    <li>عمولة تحصيل الموزعين الداخليين لها الآن صفحة وصلاحية منفصلتان — راجع وحدة "عمولة تحصيل الموزعين الداخليين" في القائمة الجانبية.</li>
+    <li>الملف المُصدَّر يتضمّن شيت "نهائي" — جدول عريض (صف لكل مندوب، وكتلة مبيعات/نسبة/عمولة لكل شركة/مورد بترتيب أبجدي موحّد) — بديلاً منظّماً لنفس فكرة شيت "نهائي" اليدوي الشهري، ومقتصر على ما تحسبه هذه الوحدة فعلياً من ملفات المبيعات/المرتجعات/النسب (بلا الراتب الثابت أو السلف أو الخصومات اليدوية الأخرى، لعدم توفرها بأي ملف يُرفع للتطبيق حالياً).</li>
+  </ul>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'commissions:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.sales_file.label }}</label>
+        {{ form.sales_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.returns_file.label }}</label>
+        {{ form.returns_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.rates_file.label }}</label>
+        {{ form.rates_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.sanitizer_targets_file.label }} <span class="text-muted">(اختياري)</span></label>
+        {{ form.sanitizer_targets_file }}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> احتساب العمولات</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>عدد المندوبين</th><th>إجمالي المبيعات</th><th>إجمالي العمولات</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.reps_count }}</td>
+        <td>{{ r.total_sales|floatformat:2 }}</td><td>{{ r.total_commission|floatformat:2 }}</td>
+        <td><a href="{% url 'commissions:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

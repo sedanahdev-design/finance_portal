@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة تنظيف الداتا #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة تنظيف الداتا #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة تنظيف الداتا</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'data_cleaning:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_rows }}</div><div class="label">إجمالي السطور</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.sales_rows }}</div><div class="label">مبيعات</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.returns_rows }}</div><div class="label">مرتجعات</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.receivables_rows }}</div><div class="label">ذمم (تسديد/رصيد سابق)</div></div></div>
+</div>
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>مركز الكلفة</th><th>القيمة المؤجلة</th><th>تاريخ التسليم</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr>
+        <td>{{ row.invoice }}</td><td>{{ row.customer }}</td><td>{{ row.cost_center }}</td>
+        <td>{{ row.deferred_value|floatformat:2|intcomma }}</td><td>{{ row.delivery_date }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if run.total_rows > preview|length %}
+<p class="text-muted small mt-2">تُعرض أول {{ preview|length }} سطر فقط. البيانات الكاملة داخل ملف الإكسل المُصدَّر.</p>
+{% endif %}
+{% endblock %}

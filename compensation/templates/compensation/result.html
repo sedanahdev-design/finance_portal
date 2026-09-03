@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة تعويضات فيتا فارما #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة تعويضات فيتا فارما #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة تعويضات فيتا فارما</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'compensation:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.raw_row_count }}</div><div class="label">أسطر خام</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.offer_row_count }}</div><div class="label">أسطر بعد فلتر العروض</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.ignored_items_count }}</div><div class="label">مواد مستبعدة (بلا عرض مميز)</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.cancelled_pairs }}</div><div class="label">أزواج مرتجع/مبيع محذوفة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.cancelled_mabee_pairs }}</div><div class="label">أزواج "م. مبيع" محذوفة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.excluded_mabee_rows_count }}</div><div class="label">فواتير "م. مبيع" مستبعدة بمفردها</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.merged_zero_qty_rows_count }}</div><div class="label">أسطر كمية=صفر مدموجة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.excluded_nonpositive_rows_count }}</div><div class="label">أسطر صافٍ سالب/صفري مستبعدة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.items_count }}</div><div class="label">عدد المواد المحتسبة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.groups_count }}</div><div class="label">حزم (مادة×عرض مفرق)</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.ineligible_groups_count }}</div><div class="label">حزم بلا عرض مفرق صالح</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.total_formula_result|floatformat:2|intcomma }}</div><div class="label">إجمالي ناتج المعادلة (قبل الطرح)</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.total_claim_value|floatformat:2|intcomma }}</div><div class="label">إجمالي قيمة المطالبة (بعد الطرح)</div></div></div>
+</div>
+
+<div class="alert alert-info">
+  <strong>المنهجية (2026-08-31، بلا اسم الصيدلية):</strong> فلترة العروض المميزة فقط ← تجميع حسب (المادة × عرض المفرق) فقط، بلا اسم الزبون إطلاقاً ← داخل كل حزمة: إلغاء أزواج "م. مبيع"/المرتجعات المتطابقة (بنفس الكمية والهدايا، بلا اشتراط الزبون) ← دمج كل سطر كميته=صفر مع سطر آخر لنفس الزبون (بإضافة هداياه إليه) وحذف سطر الكمية=صفر ← لكل سطر بمفرده: ناتج المعادلة = الكمية × (الصغير ÷ الكبير) من "عرض المفرق"، والصافي = الهدايا − ناتج المعادلة ← <strong>الأسطر ذات الصافي السالب أو الصفري تُحذف بالكامل</strong> ← المطالبة النهائية للحزمة = مجموع هدايا الأسطر المُدرَجة − مجموع ناتج معادلتها. راجع شيت كل مادة داخل ملف النتيجة لتفصيل كل سطر.
+</div>
+
+{% if run.ignored_items_count %}
+<div class="alert alert-secondary">
+  تم استبعاد <strong>{{ run.ignored_items_count }}</strong> مادة بالكامل من الحساب لعدم وجود أي "عرض مميز" لها في كل الملف (بطلب المستخدم صراحة) — راجع شيت "مواد مستبعدة (بلا عرض مميز)" داخل ملف النتيجة.
+</div>
+{% endif %}
+
+{% if run.unmatched_returns_count %}
+<div class="alert alert-warning">
+  توجد <strong>{{ run.unmatched_returns_count }}</strong> مرتجع بلا سطر بيع مطابق (نفس المادة/الكمية/الهدايا) لإلغائه معه — بقيت هذه الأسطر ضمن الحساب. راجع شيت "مرتجعات بدون مبيع مطابق".
+</div>
+{% endif %}
+
+{% if run.ineligible_groups_count %}
+<div class="alert alert-warning">
+  توجد <strong>{{ run.ineligible_groups_count }}</strong> حزمة (مادة × عرض مفرق) بلا قيمة "عرض مفرق" صالحة — تعذّر تطبيق المعادلة عليها. راجع شيت "حزم بلا عرض مفرق صالح" داخل ملف النتيجة.
+</div>
+{% endif %}
+
+{% if run.excluded_nonpositive_rows_count %}
+<div class="alert alert-secondary">
+  تم استبعاد <strong>{{ run.excluded_nonpositive_rows_count }}</strong> سطر كان صافيه (الهدايا − ناتج معادلته) سالباً أو صفرياً — بطلب المستخدم الصريح. راجع شيت "أسطر صافٍ سالب أو صفري مستبعدة" داخل ملف النتيجة.
+</div>
+{% endif %}
+
+{% if run.unmerged_zero_qty_rows_count %}
+<div class="alert alert-warning">
+  توجد <strong>{{ run.unmerged_zero_qty_rows_count }}</strong> سطر كمية=صفر بلا سطر آخر لنفس الزبون لدمج هداياه معه — راجع شيت "أسطر كمية=صفر بلا زبون آخر" داخل ملف النتيجة.
+</div>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>المادة</th><th>عدد المجموعات</th><th>مجموع الكمية</th><th>مجموع الهدايا</th><th>ناتج المعادلة</th><th>قيمة المطالبة</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr>
+        <td>{{ row.item }}</td><td>{{ row.groups }}</td>
+        <td>{{ row.qty|floatformat:2|intcomma }}</td>
+        <td>{{ row.gifts|floatformat:2|intcomma }}</td>
+        <td>{{ row.formula|floatformat:2|intcomma }}</td>
+        <td>{{ row.value|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if run.items_count > preview|length %}
+<p class="text-muted small mt-2">تُعرض أول {{ preview|length }} مادة فقط. القائمة الكاملة (بتفصيل كل مجموعة زبون×عرض) داخل ملف الإكسل المُصدَّر — شيت مستقل لكل مادة.</p>
+{% endif %}
+{% endblock %}

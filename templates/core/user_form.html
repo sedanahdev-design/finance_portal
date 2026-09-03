@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}بيانات مستخدم{% endblock %}
+{% block page_title %}{% if instance %}تعديل مستخدم{% else %}مستخدم جديد{% endif %}{% endblock %}
+{% block content %}
+<div class="card-surface" style="max-width: 640px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.username.label }}</label>
+        {{ form.username }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.password.label }}</label>
+        {{ form.password }}
+        <div class="form-text">{{ form.password.help_text }}</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.first_name.label }}</label>
+        {{ form.first_name }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.last_name.label }}</label>
+        {{ form.last_name }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.job_title.label }}</label>
+        {{ form.job_title }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.phone.label }}</label>
+        {{ form.phone }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.role.label }}</label>
+        {{ form.role }}
+      </div>
+      <div class="col-md-6 d-flex align-items-end">
+        <div class="form-check">
+          {{ form.is_active_employee }}
+          <label class="form-check-label fw-bold">{{ form.is_active_employee.label }}</label>
+        </div>
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button type="submit" class="btn btn-primary-soft">حفظ ومتابعة لضبط الصلاحيات</button>
+      <a href="{% url 'core:user_list' %}" class="btn btn-outline-soft">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

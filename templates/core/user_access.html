@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}صلاحيات {{ target }}{% endblock %}
+{% block page_title %}صلاحيات المستخدم: {{ target }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>ضبط صلاحيات الوحدات</h2>
+    <p>حدّد لكل وحدة: عرض / رفع وتشغيل / تصدير النتائج، للمستخدم <strong>{{ target.get_full_name|default:target.username }}</strong>.</p>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead>
+        <tr><th>الوحدة</th><th>عرض</th><th>رفع/تشغيل</th><th>تصدير</th></tr>
+      </thead>
+      <tbody>
+        {% for row in modules_with_fields %}
+        <tr>
+          <td>
+            <span class="dot d-inline-block" style="width:8px;height:8px;border-radius:50%;background:{{ row.module.color }};margin-left:6px;"></span>
+            {{ row.module.name }}
+          </td>
+          <td>{{ row.view }}</td>
+          <td>{{ row.edit }}</td>
+          <td>{{ row.export }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mt-4 d-flex gap-2">
+    <button type="submit" class="btn btn-primary-soft">حفظ الصلاحيات</button>
+    <a href="{% url 'core:user_list' %}" class="btn btn-outline-soft">إلغاء</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}فصل كشف الحساب{% endblock %}
+{% block page_title %}فصل كشف الحساب (ليرة/دولار){% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>فصل كشف الحساب حسب العملة</h2>
+    <p>ارفع كشف حساب الصيدلية ليتم فصله تلقائياً إلى ليرة سورية جديدة / ليرة سورية قديمة / دولار، مع إجمالي كل عملة.</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <strong>ملاحظة حول الليرة السورية القديمة/الجديدة:</strong>
+  يميّز النظام تلقائياً بين رمزي العملة الظاهرين داخل عمود "العملة الأصلية" في الملف:
+  <strong>ل.س.ق</strong> = ليرة سورية قديمة، <strong>ل.س.ج</strong> = ليرة سورية جديدة
+  (كل 100 ليرة قديمة = 1 ليرة جديدة، أي حُذف صفران من يمين الرقم). كل عملة تُفصل في شيت
+  مستقل بقيمتها الحقيقية بعملتها الأصلية (بدون تحويل قسري)، مع عرض القيمة المكافئة
+  بالليرة الجديدة أيضاً للمقارنة — محسوبة من سعر الصرف الفعلي المرفق بكل حركة في الملف،
+  وليس بافتراض ثابت.
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'account_statement:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label class="form-label fw-bold">{{ form.statement_file.label }}</label>
+    {{ form.statement_file }}
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> فصل الملف</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>الملف</th><th>عدد الحركات</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.source_file_name }}</td>
+        <td>{{ r.total_rows }}</td>
+        <td><a href="{% url 'account_statement:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

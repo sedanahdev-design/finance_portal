@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة المطابقة #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة المطابقة #{{ run.pk }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>نتيجة مطابقة هبة - سدانة</h2>
+    <p>ملف سدانة: <strong>{{ run.sadana_file_name }}</strong> — ملف هبة: <strong>{{ run.hiba_file_name }}</strong> — {{ run.created_at|date:"Y-m-d H:i" }}</p>
+  </div>
+  <a href="{% url 'reconciliation_hs:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل ملف النتيجة الكامل (Excel)</a>
+</div>
+
+{% if run.has_errors %}
+  <div class="card-surface mb-4" style="border-right: 5px solid var(--danger);">
+    <span class="status-pill status-error" style="font-size:1rem;"><i class="bi bi-exclamation-triangle-fill"></i> توجد فروقات تحتاج مراجعتك</span>
+    <p class="mt-3 mb-0 text-muted">
+      تم العثور على <strong>{{ run.hiba_only_count }}</strong> حركة في ملف هبة بلا مقابل في سدانة،
+      و<strong>{{ run.sadana_only_count }}</strong> حركة في ملف سدانة بلا مقابل في هبة.
+      بعض هذه الفروقات قد يكون سببه اختلاف الفترة الزمنية المُغطاة في كل ملف — راجع عمود "ملاحظات" في كل جدول.
+    </p>
+  </div>
+{% else %}
+  <div class="card-surface mb-4" style="border-right: 5px solid var(--success);">
+    <span class="status-pill status-ok" style="font-size:1rem;"><i class="bi bi-check-circle-fill"></i> مطابقة تامة، لا توجد أي أخطاء</span>
+    <p class="mt-3 mb-0 text-muted">جميع حركات الملفين تمت مطابقتها بنجاح حسب المبلغ والتاريخ.</p>
+  </div>
+{% endif %}
+
+{% if run.found_diff_date_count %}
+  <div class="card-surface mb-4" style="border-right: 5px solid #F59E0B;">
+    <span class="status-pill" style="font-size:1rem;background:#FFF7E0;color:#92400E;"><i class="bi bi-search"></i> {{ run.found_diff_date_count }} حركة موجودة بنفس المبلغ عند الطرف الآخر لكن بتاريخ مختلف</span>
+    <p class="mt-3 mb-0 text-muted">
+      بإجمالي {{ run.found_diff_date_amount|floatformat:2|intcomma }} — هذه ليست "فرقاً حقيقياً" (لم تُحسب ضمن حركات بلا مقابل أعلاه)، لكنها لم تُطابَق تلقائياً بسبب اختلاف التاريخ/الترتيب. راجع تبويب "موجود بتاريخ مختلف" أدناه.
+    </p>
+  </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2">
+    <div class="stat-tile"><div class="num">{{ run.hiba_count }}</div><div class="label">حركات هبة</div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="stat-tile"><div class="num">{{ run.sadana_count }}</div><div class="label">حركات سدانة</div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_count }}</div><div class="label">حركات متطابقة ({{ run.match_rate }}%)</div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="stat-tile"><div class="num" style="color:#B45309;">{{ run.found_diff_date_count }}</div><div class="label">موجودة بتاريخ مختلف</div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.hiba_only_count|add:run.sadana_only_count }}</div><div class="label">فرق حقيقي (بلا مقابل)</div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="stat-tile">
+      <div class="label mb-1">فترة ملف هبة</div>
+      <div class="fw-bold">{{ run.hiba_period_start|date:"Y-m-d"|default:"—" }} → {{ run.hiba_period_end|date:"Y-m-d"|default:"—" }}</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="stat-tile">
+      <div class="label mb-1">فترة ملف سدانة</div>
+      <div class="fw-bold">{{ run.sadana_period_start|date:"Y-m-d"|default:"—" }} → {{ run.sadana_period_end|date:"Y-m-d"|default:"—" }}</div>
+    </div>
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-hiba">موجود في هبة فقط ({{ run.hiba_only_count }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sadana">موجود في سدانة فقط ({{ run.sadana_only_count }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-diff">متطابق بفارق تاريخ ({{ run.matched_date_diff }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-found-diff-date">موجود بتاريخ مختلف ({{ run.found_diff_date_count }})</button></li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tab-hiba">
+    <div class="table-wrap">
+      <table class="table-clean">
+        <thead><tr><th>التاريخ</th><th>رقم السند</th><th>البيان</th><th>نوع الحركة</th><th>المبلغ</th><th>ملاحظات</th></tr></thead>
+        <tbody>
+          {% for row in preview.hiba_only %}
+          <tr class="row-diff">
+            <td>{{ row.date }}</td><td>{{ row.voucher }}</td><td>{{ row.narration }}</td>
+            <td>{{ row.kind }}</td><td>{{ row.amount|floatformat:2|intcomma }}</td><td>{{ row.note }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">لا توجد حركات — كل شيء متطابق.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if run.hiba_only_count > preview.hiba_only|length %}
+      <p class="text-muted small mt-2">تُعرض أول {{ preview.hiba_only|length }} حركة فقط. القائمة الكاملة ({{ run.hiba_only_count }} حركة) داخل ملف الإكسل المُصدَّر.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="tab-sadana">
+    <div class="table-wrap">
+      <table class="table-clean">
+        <thead><tr><th>التاريخ</th><th>رقم السند</th><th>البيان</th><th>نوع الحركة</th><th>المبلغ</th><th>ملاحظات</th></tr></thead>
+        <tbody>
+          {% for row in preview.sadana_only %}
+          <tr class="row-diff">
+            <td>{{ row.date }}</td><td>{{ row.voucher }}</td><td>{{ row.narration }}</td>
+            <td>{{ row.kind }}</td><td>{{ row.amount|floatformat:2|intcomma }}</td><td>{{ row.note }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">لا توجد حركات — كل شيء متطابق.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if run.sadana_only_count > preview.sadana_only|length %}
+      <p class="text-muted small mt-2">تُعرض أول {{ preview.sadana_only|length }} حركة فقط. القائمة الكاملة ({{ run.sadana_only_count }} حركة) داخل ملف الإكسل المُصدَّر.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="tab-diff">
+    <div class="table-wrap">
+      <table class="table-clean">
+        <thead><tr><th>تاريخ هبة</th><th>سند هبة</th><th>بيان هبة</th><th>تاريخ سدانة</th><th>سند سدانة</th><th>بيان سدانة</th><th>المبلغ</th><th>فرق الأيام</th></tr></thead>
+        <tbody>
+          {% for row in preview.matched_diff %}
+          <tr class="row-outperiod">
+            <td>{{ row.h_date }}</td><td>{{ row.h_voucher }}</td><td>{{ row.h_narration }}</td>
+            <td>{{ row.s_date }}</td><td>{{ row.s_voucher }}</td><td>{{ row.s_narration }}</td>
+            <td>{{ row.amount|floatformat:2|intcomma }}</td><td>{{ row.day_diff }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-3">لا توجد حركات متطابقة بفارق تاريخ.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-found-diff-date">
+    <div class="table-wrap">
+      <table class="table-clean">
+        <thead><tr><th>تاريخ هبة</th><th>سند هبة</th><th>تاريخ سدانة</th><th>سند سدانة</th><th>المبلغ</th><th>ملاحظات</th></tr></thead>
+        <tbody>
+          {% for row in preview.found_diff_date %}
+          <tr class="row-outperiod">
+            <td>{{ row.hiba_date }}</td><td>{{ row.hiba_voucher }}</td>
+            <td>{{ row.sadana_date }}</td><td>{{ row.sadana_voucher }}</td>
+            <td>{{ row.amount|floatformat:2|intcomma }}</td><td>{{ row.note }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">لا توجد حركات في هذه الفئة.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if run.found_diff_date_count > preview.found_diff_date|length %}
+      <p class="text-muted small mt-2">تُعرض أول {{ preview.found_diff_date|length }} حركة فقط. القائمة الكاملة ({{ run.found_diff_date_count }} حركة) داخل ملف الإكسل المُصدَّر.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

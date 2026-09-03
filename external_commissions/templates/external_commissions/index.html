@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}عمولات الموزعين الخارجيين{% endblock %}
+{% block page_title %}عمولات الموزعين الخارجيين{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>عمولات الموزعين الخارجيين</h2>
+    <p>ارفع ملف "الذمم" الخاص بكل موزّع خارجي (يمكن اختيار عدة ملفات معاً، ملف لكل موزّع) لاحتساب عمولة كل واحد منهم: (مرتجع − كشوفات) × 3%، مع ترحيل الرصيد الدوّار من الشهر السابق.</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  ملاحظة: دفتر الأستاذ الخام لا يفرّق داخلياً بين "مبيعات" و"مرتجعات" ضمن خانة الدائن (كلاهما في عمود دائن واحد).
+  لذلك تُستخرج المرتجعات من نص عمود "البيان" لكل حركة دائن (أي حركة يحتوي بيانها على كلمة "مرتجع")، وتُستبعد
+  حركات الدائن الأخرى ("مبيعات") من أساس العمولة بالكامل — بطلب صريح من المستخدم بتاريخ 2026-08-26، بعد أن
+  كانت المعادلة السابقة تعتمد الدائن كاملاً ((مبيع + مرتجع − كشوفات) × 3%). حركات "المبيعات" المستبعدة تبقى
+  ظاهرة في التقرير المُصدَّر (موسومة بنوعها) ولا تُحذف من البيانات.
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'external_commissions:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label class="form-label fw-bold">ملفات ذمم الموزعين (يمكن اختيار عدة ملفات دفعة واحدة)</label>
+    <input type="file" name="distributor_files" class="form-control" accept=".xlsx,.xls" multiple required>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> احتساب العمولات</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>عدد الموزعين</th><th>إجمالي العمولات</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.distributors_count }}</td>
+        <td>{{ r.total_commission }}</td>
+        <td><a href="{% url 'external_commissions:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

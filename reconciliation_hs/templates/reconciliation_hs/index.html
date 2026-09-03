@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}مطابقة هبة - سدانة{% endblock %}
+{% block page_title %}مطابقة هبة - سدانة{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>مطابقة هبة - سدانة</h2>
+    <p>ارفع ملف سدانة وملف هبة (دفتر الأستاذ) ليتم مطابقتهما آلياً حسب المبلغ والتاريخ وإظهار أي فروقات.</p>
+  </div>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'reconciliation_hs:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label class="form-label fw-bold"><i class="bi bi-file-earmark-spreadsheet"></i> {{ form.sadana_file.label }}</label>
+        <div class="upload-drop">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <p class="mb-2 mt-2 text-muted">اختر ملف إكسل الخاص بسدانة</p>
+          {{ form.sadana_file }}
+          {% if form.sadana_file.errors %}<div class="text-danger small mt-2">{{ form.sadana_file.errors|join:", " }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold"><i class="bi bi-file-earmark-spreadsheet"></i> {{ form.hiba_file.label }}</label>
+        <div class="upload-drop">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <p class="mb-2 mt-2 text-muted">اختر ملف إكسل الخاص بهبة</p>
+          {{ form.hiba_file }}
+          {% if form.hiba_file.errors %}<div class="text-danger small mt-2">{{ form.hiba_file.errors|join:", " }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> بدء المطابقة</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات المطابقة السابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead>
+      <tr>
+        <th>#</th><th>التاريخ</th><th>المستخدم</th><th>حركات هبة</th><th>حركات سدانة</th>
+        <th>متطابقة</th><th>بتاريخ مختلف</th><th>هبة فقط</th><th>سدانة فقط</th><th>النتيجة</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td>
+        <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ r.created_by|default:"—" }}</td>
+        <td>{{ r.hiba_count }}</td>
+        <td>{{ r.sadana_count }}</td>
+        <td>{{ r.matched_count }}</td>
+        <td>{{ r.found_diff_date_count }}</td>
+        <td>{{ r.hiba_only_count }}</td>
+        <td>{{ r.sadana_only_count }}</td>
+        <td>
+          {% if r.has_errors %}
+            <span class="status-pill status-error"><i class="bi bi-exclamation-triangle"></i> توجد فروقات</span>
+          {% else %}
+            <span class="status-pill status-ok"><i class="bi bi-check-circle"></i> مطابقة تامة</span>
+          {% endif %}
+        </td>
+        <td><a href="{% url 'reconciliation_hs:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="11" class="text-center text-muted py-4">لا توجد عمليات مطابقة بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

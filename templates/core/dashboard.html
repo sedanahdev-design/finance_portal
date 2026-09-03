@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم{% endblock %}
+{% block page_title %}لوحة التحكم{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>مرحباً {{ user.get_full_name|default:user.username }} 👋</h2>
+    <p>اختر إحدى الوحدات أدناه للبدء.</p>
+  </div>
+</div>
+
+{% if not modules %}
+  <div class="card-surface text-center py-5">
+    <i class="bi bi-lock" style="font-size:2rem; color:#94a3b8;"></i>
+    <p class="mt-2 mb-0 text-muted">لا تملك صلاحية على أي وحدة حالياً. الرجاء التواصل مع مشرف القسم.</p>
+  </div>
+{% else %}
+<div class="row g-3">
+  {% for m in modules %}
+  <div class="col-md-6 col-lg-4">
+    <a href="{% url m.url_name %}" class="module-card text-decoration-none">
+      <div class="module-icon" style="background: {{ m.color }};"><i class="bi {{ m.icon }}"></i></div>
+      <h3>{{ m.name }}</h3>
+      <p>{{ m.description }}</p>
+      <span class="go" style="color: {{ m.color }};">فتح الوحدة <i class="bi bi-arrow-left"></i></span>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if recent_logs %}
+<div class="mt-4">
+  <h5 class="fw-bold mb-3">آخر النشاطات</h5>
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>التفاصيل</th></tr></thead>
+      <tbody>
+        {% for log in recent_logs %}
+        <tr>
+          <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+          <td>{{ log.user|default:"—" }}</td>
+          <td>{{ log.get_action_display }}</td>
+          <td>{{ log.message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

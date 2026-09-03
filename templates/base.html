@@ -1,0 +1,77 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}منصة القسم المالي{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.rtl.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/cairo/cairo.css' %}">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% if user.is_authenticated %}
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><i class="bi bi-diagram-3-fill"></i><span>منصة القسم المالي</span></div>
+
+      <a href="{% url 'core:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-grid-1x2-fill"></i> لوحة التحكم
+      </a>
+
+      <div class="nav-section-title">الحلول</div>
+      {% for m in nav_modules %}
+        <a href="{% url m.url_name %}" class="nav-link {% if request.resolver_match.app_name == m.code %}active{% endif %}">
+          <span class="dot" style="background: {{ m.color }}"></span>
+          <span>{{ m.short_name }}</span>
+        </a>
+      {% endfor %}
+
+      {% if is_supervisor %}
+      <div class="nav-section-title">إدارة النظام</div>
+      <a href="{% url 'core:user_list' %}" class="nav-link"><i class="bi bi-people-fill"></i> المستخدمون والصلاحيات</a>
+      <a href="{% url 'core:audit_log' %}" class="nav-link"><i class="bi bi-journal-text"></i> سجل التدقيق</a>
+      <a href="/django-admin/" class="nav-link"><i class="bi bi-gear-fill"></i> لوحة الإدارة التقنية</a>
+      {% endif %}
+    </aside>
+
+    <div class="main-area">
+      <header class="topbar">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-chip">
+            <div class="user-avatar">{{ user.first_name|default:user.username|slice:':1' }}</div>
+            <div>
+              <div style="font-weight:700; font-size:.88rem;">{{ user.get_full_name|default:user.username }}</div>
+              <div style="font-size:.72rem; color:var(--text-muted);">{{ user.get_role_display }}</div>
+            </div>
+          </div>
+          <form method="post" action="{% url 'core:logout' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-soft" type="submit"><i class="bi bi-box-arrow-left"></i> خروج</button>
+          </form>
+        </div>
+      </header>
+
+      <main class="content">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% else %}
+    {% block guest_content %}{% endblock %}
+  {% endif %}
+
+  <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

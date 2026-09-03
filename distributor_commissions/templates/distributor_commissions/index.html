@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}عمولة تحصيل الموزعين الداخليين{% endblock %}
+{% block page_title %}عمولة تحصيل الموزعين الداخليين{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>عمولة تحصيل الموزعين الداخليين</h2>
+    <p>ارفع ملف الحركة (يحتوي شيتي «دفتر الأستاذ» و«مرتجعات»)، ليتم احتساب عمولة تحصيل كل موزع (سائق/مساعد/دراجة) حسب عدد المشاركين وفئة كل منهم في كل حركة، وخصم المرتجعات.</p>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <strong>طريقة الاحتساب (مُتحقَّق منها مقابل شهر مرجعي كامل):</strong>
+  <ul class="mb-0">
+    <li><strong>تحصيل نقدي — منفرد:</strong> 0.4% لسائق السيارة/المساعد، أو 0.25% لسائق الدراجة.</li>
+    <li><strong>شخصان:</strong> 0.25% لكل منهما، أياً كانت فئتهما.</li>
+    <li><strong>ثلاثة أشخاص:</strong> كل شخص حسب فئته: 0.5%/3 لفئة السيارة، 0.25%/3 لفئة الدراجة.</li>
+    <li><strong>مرتجعات:</strong> خصم ثابت 0.5% من كل مشارك، بصرف النظر عن دوره أو عدد المشاركين معه — هذا مختلف عن تطبيق نفس نسب التحصيل المتدرجة، لكنه مطابق تماماً لما أظهرته بيانات التحقق المرجعية.</li>
+    <li>حركات القبض التي تصل بأعمدة الموزع فارغة أو باسم بديل غير حقيقي (كشوف تحصيل مجمّعة) تُقرأ تلقائياً من نص البيان («بيد السيد فلان...») — فقط عندما تكون بيانات الأعمدة غير مكتملة (اسم بديل)؛ إن كانت الأعمدة تحوي مشاركين حقيقيين كاملين لا يُضاف أي اسم إضافي من البيان حتى لو ورد فيه ذكر عرضي لاسم آخر (تصحيح 2026-08-31).</li>
+    <li>حركات حساب المستودع (وفق عمود الحساب المقابل) مستبعدة كلياً من العمولة — تحقّقنا من صيغ الملف المرجعي نفسه وتأكّد أن هذه القاعدة صحيحة في 5 من 6 حالات فعلية؛ الحالة السادسة المتبقية موثَّقة كخلل محتمل في الملف المرجعي نفسه (راجع الرسالة المرفقة).</li>
+    <li>أي حركة يتعذّر تحديد فئتها أو اسم المشارك فيها بثقة تُعلَّم في شيت «حركات للمراجعة» ضمن الملف المُصدَّر بدل تجاهلها أو تخمينها بصمت.</li>
+  </ul>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'distributor_commissions:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-8">
+        <label class="form-label fw-bold">{{ form.ledger_file.label }}</label>
+        {{ form.ledger_file }}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> احتساب عمولة التحصيل</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>عدد الموزعين</th><th>حركات نقدية</th><th>حركات مرتجع</th><th>للمراجعة</th><th>الصافي</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.distributors_count }}</td>
+        <td>{{ r.rows_count }}</td><td>{{ r.return_rows_count }}</td><td>{{ r.flagged_rows_count }}</td>
+        <td>{{ r.total_commission|floatformat:2 }}</td>
+        <td><a href="{% url 'distributor_commissions:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

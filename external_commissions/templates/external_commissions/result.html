@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة عمولات الموزعين الخارجيين #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة عمولات الموزعين الخارجيين #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة احتساب العمولات</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'external_commissions:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.distributors_count }}</div><div class="label">عدد الموزعين</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_debit|floatformat:2|intcomma }}</div><div class="label">إجمالي الكشوفات (مدين)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_credit|floatformat:2|intcomma }}</div><div class="label">إجمالي الدائن الكامل (مبيعات+مرتجعات، للاطلاع فقط)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--primary);">{{ run.total_commission|floatformat:2|intcomma }}</div><div class="label">إجمالي العمولات</div></div></div>
+</div>
+
+<div class="alert alert-info">
+  معادلة العمولة الحالية: (مرتجع − كشوفات) × 3%. عمود "إجمالي الدائن" أعلاه للاطلاع فقط ويشمل المبيعات
+  المستبعدة من العمولة؛ عمود "مرتجعات" في الجدول أدناه هو الجزء منه الذي دخل فعلاً في أساس العمولة.
+</div>
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>الموزّع</th><th>الرصيد الافتتاحي</th><th>إجمالي مدين</th><th>إجمالي دائن</th><th>مرتجعات (أساس العمولة)</th><th>مبيعات (مستبعدة)</th><th>أساس العمولة</th><th>العمولة (3%)</th><th>الرصيد الختامي</th></tr></thead>
+    <tbody>
+      {% for d in preview %}
+      <tr>
+        <td class="fw-bold">{{ d.name }}</td>
+        <td>{{ d.opening_balance|floatformat:2|intcomma }}</td>
+        <td>{{ d.total_debit|floatformat:2|intcomma }}</td>
+        <td>{{ d.total_credit|floatformat:2|intcomma }}</td>
+        <td>{{ d.total_returns|floatformat:2|intcomma }}</td>
+        <td class="text-muted">{{ d.total_sales_excluded|floatformat:2|intcomma }}</td>
+        <td>{{ d.commission_base|floatformat:2|intcomma }}</td>
+        <td class="fw-bold" style="color:var(--primary);">{{ d.commission|floatformat:2|intcomma }}</td>
+        <td>{{ d.closing_balance|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

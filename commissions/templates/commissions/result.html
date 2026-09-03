@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة العمولات #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة العمولات #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة عمولات المندوبين</h2><p>{{ run.created_at|date:"Y-m-d H:i" }}</p></div>
+  <a href="{% url 'commissions:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.reps_count }}</div><div class="label">مندوب/كول سنتر</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_sales|floatformat:0|intcomma }}</div><div class="label">إجمالي المبيعات (صافي المرتجعات)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_commission|floatformat:2|intcomma }}</div><div class="label">إجمالي العمولات المستحقة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.unrated_companies_count }}</div><div class="label">شركات بلا نسبة</div></div></div>
+</div>
+
+{% if run.unrated_companies_count %}
+<div class="alert alert-warning">توجد {{ run.unrated_companies_count }} شركة غير موجودة في جدول نسب العمولات، احتُسبت عمولتها صفراً. راجع شيت "شركات بلا نسبة" داخل ملف النتيجة.</div>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>المندوب / الكول سنتر</th><th>المبيعات (صافي المرتجعات)</th><th>العمولة المستحقة</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr>
+        <td>{{ row.rep }}</td>
+        <td>{{ row.sales|floatformat:2|intcomma }}</td>
+        <td>{{ row.commission|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if run.reps_count > preview|length %}
+<p class="text-muted small mt-2">تُعرض أول {{ preview|length }} مندوب فقط. القائمة الكاملة مع تفصيل كل شركة داخل ملف الإكسل المُصدَّر.</p>
+{% endif %}
+
+<h5 class="fw-bold mb-3 mt-5">تفصيل حسب المورد والشركة (مجموع كل المندوبين)</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>المورّد/الشركة</th><th>إجمالي المبيعات</th><th>إجمالي العمولة</th></tr></thead>
+    <tbody>
+      {% for row in company_preview %}
+      <tr>
+        <td>{{ row.company }}</td>
+        <td>{{ row.sales|floatformat:2|intcomma }}</td>
+        <td>{{ row.commission|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-muted small mt-2">مرتّبة تنازلياً حسب إجمالي العمولة. القائمة الكاملة داخل شيت "تفصيل حسب المورد والشركة" في ملف الإكسل المُصدَّر.</p>
+{% endblock %}

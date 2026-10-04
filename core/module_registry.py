@@ -66,15 +66,9 @@ MODULES = [
         url_name="tax_inventory:index",
         color="#ca8a04",
     ),
-    ModuleDef(
-        code="receivables",
-        name="مطابقة الذمم مع قسم التوزيع",
-        short_name="مطابقة الذمم",
-        description="مطابقة أرصدة المدين والدائن حسب رقم البيان، مع تجميع الدفعات المتعددة لنفس البيان.",
-        icon="bi-diagram-3",
-        url_name="receivables:index",
-        color="#db2777",
-    ),
+    # وحدة "receivables" (مطابقة الذمم مع قسم التوزيع) أُلغيت نهائياً بتاريخ
+    # 2026-10-01 بطلب صريح من المستخدم ("طلعت مو فعالة") — حُذف تطبيقها بالكامل
+    # (receivables/) وأُزيلت من INSTALLED_APPS وملف urls.py الرئيسي.
     ModuleDef(
         code="dawak_compare",
         name="مطابقة دواك",
@@ -110,6 +104,15 @@ MODULES = [
         icon="bi-truck",
         url_name="external_commissions:index",
         color="#0e7490",
+    ),
+    ModuleDef(
+        code="argivit_compare",
+        name="مطابقة أسعار الارجيفيت والمبيعات مع المرتجعات",
+        short_name="مطابقة الارجيفيت",
+        description="مطابقة السعر الإفرادي بالحركة اليومية مع قائمة الأسعار بالدولار عبر أربع مراحل متتالية (مباشرة، بعد الحسم، عرض مفرق، عرض مميز)، ومطابقة كل مبيع مع مرتجعه حسب الزبون (مفرق وجملة).",
+        icon="bi-currency-dollar",
+        url_name="argivit_compare:index",
+        color="#9333ea",
     ),
 ]
 

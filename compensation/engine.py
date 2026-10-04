@@ -75,6 +75,18 @@
     ظاهراً بالكامل في شيت المادة التفصيلي للتدقيق، مع عمود الزبون
     الأصلي للمرجعية فقط — لا يدخل الزبون في أي حساب).
 
+**تعديل رابع (2026-09-26، بطلب المستخدم الصريح):** الخطوة 3 القديمة (أعلاه،
+"إن لم توجد قيمة 'عرض مفرق' صالحة لحزمة ما... تظهر كاملة... بمطالبة فارغة")
+تغيّرت جذرياً. رسالة المستخدم: "هناك عروض مميزة لا يوجد لها عرض مفرق أحتاج
+منك أن بهذه الحالة أن تجمع كل الهدايا للمادة في حال وجود عرض مميز لها."
+أي: حزمة (مادة × عرض مفرق) اجتازت فلتر "عرض مميز فعلي" (الخطوة 2) لكن قيمة
+"عرض مفرق" لديها غير صالحة/مفهومة — مطالبتها الآن = **مجموع كل هدايا أسطر
+الحزمة مباشرة** (بعد إلغاء أزواج "م. مبيع"/المرتجعات ودمج أسطر الكمية=صفر
+كالمعتاد)، بلا أي طرح لناتج معادلة (لا توجد نسبة عرض مفرق لحسابها أصلاً)،
+بدل تركها فارغة بانتظار مراجعة يدوية. راجع compute_bucket أدناه (فرع
+`retail is None`). لا يوجد مفهوم "صافي سالب/صفري" لهذه الحزم (لا معادلة
+تُطرح)، فكل أسطرها تُعتبر مُدرَجة بالكامل بالمجموع.
+
 ملاحظة تحقّق مهمة (تعارض مكتشَف 2026-08-31، عُرِض على المستخدم وأكّد
 اعتماد القاعدة الحرفية رغم ذلك):
   عند تطبيق كل الخطوات أعلاه على ملف "فيتا شهر 8" الحقيقي، مادة "اوستيو
@@ -89,6 +101,39 @@
   فيها يطابق قيمتها المرجعية 1280 تماماً، بعكس مجموع كل الأسطر الذي
   يعطي 1277.4). يُنصَح بمراجعة هذه النقطة يدوياً إن ظهر فرق غير متوقع
   مستقبلاً على مواد أخرى.
+
+**تعديل خامس (2026-10-04، بطلب المستخدم الصريح بعد تدقيق حالة حقيقية):**
+اكتُشف أثناء مطابقة نتائج النظام مع ملف "مطالبة" يدوي مرجعي أن مادة
+"غلوبيفيت كبير شراب 200 مل" أعطت 375 بدل 325 (فرق +50). التدقيق سطراً
+بسطر كشف السبب: فاتورة "م. مبيع ج: 27" لـ"مستودع بركات- دمشق" بكمية
+100 وهدايا 80 (تصحيح/سحب مبيعات جملة) — لا يوجد لها سطر بيع واحد بنفس
+الكمية والهدايا بالضبط لتُلغى معه (أقصى كمية بسطر بيع فردي هنا 20)،
+فكانت تُستبعد بمفردها بلا أي أثر على المجموع (كما صُمم `cancel_mabee_pairs`
+أصلاً)، تاركةً 8 فواتير بيع صغيرة (موجودة فعلاً وصحيحة) مُدرَجة بالكامل
+بالمجموع رغم أنها بالواقع تمثّل نفس الكمية التي صُحِّحت/أُعيدت.
+
+شرح المستخدم الحرفي لآلية فريق المالية الفعلية: "الفاتورة مرتجع مبيع
+ضمن مستودع بركات هية طلعت 100+80 اضطرينا نجمع من فواتير المبيعات...
+لحتى يطلع معنا 100+80" — أي أن المالية تطابق تصحيح/مرتجع كبير الحجم
+مع **تجميع عدة فواتير بيع أصغر** (لا فاتورة واحدة) يكون مجموع كمياتها
+ومجموع هداياها معاً (الشرطان بآن واحد) يطابق تماماً كمية وهدايا سطر
+التصحيح/المرتجع، ثم تُلغي الكل معاً. أكّد المستخدم أيضاً أنه "لا يوجد
+كسر عملياً" (أي لا حاجة لمعالجة باقي كسري عند عدم وجود مطابقة تامة
+لمضاعفات 100 — الحالة غير متوقعة عملياً، وتبقى الفاتورة بلا مطابقة
+كالسابق إن لم توجد مطابقة تامة).
+
+التطبيق: أُضيفت `_find_pool_match` (بحث DP/تراجعي مجمَّع حسب القيم
+المتكررة، يُفضَّل أقل عدد أسطر ممكن) تُستخدَم تلقائياً داخل
+`_cancel_pairs_by_qty_gifts` لكل من "م. مبيع" والمرتجعات: إن لم توجد
+مطابقة مباشرة (سطر واحد)، يُحاوَل إيجاد تجميع عدة فواتير بيع يطابق
+تماماً قبل اعتبار السطر "بلا مطابقة". التحقق العكسي بمثال "غلوبيفيت
+كبير" الحقيقي: مجموعة من 7 من الفواتير الثمانية (4 بكمية 10/هدايا 8 +
+3 بكمية 20/هدايا 16 = كمية 100 وهدايا 80 بالضبط) أُلغيت تلقائياً مع
+فاتورة "م. مبيع ج: 27"، فانخفضت مطالبة المادة من 375 إلى **325 بالضبط**
+— مطابقة تامة للمرجع اليدوي. الفاتورة الثامنة المتبقية بقيت مُدرَجة
+بشكل طبيعي (لم تكن جزءاً من أي تجميع). كل مطابقة تجميع تُسجَّل وتظهر
+بشيت تصدير مخصص للتدقيق (`result["pool_matches"]`) — راجع
+compensation/excel_export.py.
 
 تغييرات محفوظة من النسخة السابقة (2026-08-30/31) دون تعديل:
   - تعبئة رقم الفاتورة الصفري من السطر السابق (الخطوة 1).
@@ -300,16 +345,94 @@ def parse_daily_movement(file_obj) -> list[MovementRow]:
     return out
 
 
-def _cancel_pairs_by_qty_gifts(rows: list[MovementRow], is_target) -> tuple[list[MovementRow], int, list[MovementRow]]:
+def _find_pool_match(target_qty: Decimal, target_gifts: Decimal, candidates: list["MovementRow"]):
+    """**تعديل 2026-10-04 بطلب المستخدم الصريح** (حالة حقيقية: مادة
+    "غلوبيفيت كبير شراب 200 مل"، فاتورة "م. مبيع ج: 27" لـ"مستودع بركات-
+    دمشق" بكمية 100 وهدايا 80 — لا يوجد لها سطر بيع واحد بنفس الكمية
+    والهدايا بالضبط). شرح المستخدم حرفياً: "الفاتورة مرتجع مبيع ضمن
+    مستودع بركات هية طلعت 100+80 اضطرينا نجمع من فواتير المبيعات...
+    لحتى يطلع معنا 100+80". أي: فريق المالية يطابق تصحيح/مرتجع كبير
+    الحجم مع **تجميع عدة فواتير بيع أصغر** (لا فاتورة واحدة) يكون مجموع
+    كمياتها ومجموع هداياها معاً يطابق تماماً كمية وهدايا سطر التصحيح/
+    المرتجع، ثم يُلغي الكل معاً (التصحيح + كل الفواتير المطابقة) تماماً
+    كما تُلغى الأزواج المباشرة أعلاه.
+
+    يبحث هنا عن **مجموعة فرعية** من `candidates` (أسطر بيع حقيقية ضمن
+    نفس الحزمة مادة×عرض مفرق) يكون مجموع كمياتها = target_qty **و**
+    مجموع هداياها = target_gifts معاً (الشرطان بآن واحد، وليس الكمية
+    فقط) — بحث DP/تراجعي مجمَّع حسب قيمة (كمية, هدية) المتكررة لتبسيط
+    المساحة (الأسطر المتماثلة كثيرة عملياً: عشرات الفواتير بنفس الزوج
+    "10+8" أو "20+16" مثلاً)، يُفضَّل أقل عدد أسطر ممكن (الأكبر قيمة
+    أولاً) ليسهل عرضها وتفسيرها للمستخدم. يرجع قائمة الأسطر المطابقة،
+    أو None إن تعذّر إيجاد مطابقة تامة (تبقى الحالة الاستثنائية حينها
+    بلا تغيير — تصحيح/مرتجع مستبعد بمفرده كالسابق)."""
+    if target_qty <= 0 and target_gifts <= 0:
+        return None
+    groups: dict[tuple, list["MovementRow"]] = {}
+    for r in candidates:
+        groups.setdefault((r.qty, r.gifts), []).append(r)
+    # تستبعد المجموعات التي لن تفيد أبداً (كمية وهدية صفريان معاً)
+    keys = [k for k in groups if not (k[0] == 0 and k[1] == 0)]
+    keys.sort(key=lambda k: (-k[0], -k[1]))  # الأكبر أولاً: يقلّل عدد الأسطر بالمطابقة
+    counts = [len(groups[k]) for k in keys]
+
+    memo: dict[tuple, object] = {}
+
+    def rec(i: int, remaining_qty: Decimal, remaining_gifts: Decimal):
+        if remaining_qty == 0 and remaining_gifts == 0:
+            return []
+        if i >= len(keys) or remaining_qty < 0 or remaining_gifts < 0:
+            return None
+        key = (i, remaining_qty, remaining_gifts)
+        if key in memo:
+            return memo[key]
+        qty_v, gifts_v = keys[i]
+        result = None
+        use = counts[i]
+        while use >= 0:
+            nq = remaining_qty - qty_v * use
+            ng = remaining_gifts - gifts_v * use
+            if nq >= 0 and ng >= 0:
+                sub = rec(i + 1, nq, ng)
+                if sub is not None:
+                    result = [(keys[i], use)] + sub
+                    break
+            use -= 1
+        memo[key] = result
+        return result
+
+    plan = rec(0, target_qty, target_gifts)
+    if plan is None:
+        return None
+    matched_rows: list["MovementRow"] = []
+    for key, use in plan:
+        if use <= 0:
+            continue
+        matched_rows.extend(groups[key][:use])
+    return matched_rows
+
+
+def _cancel_pairs_by_qty_gifts(rows: list[MovementRow], is_target) -> tuple[list[MovementRow], int, list[MovementRow], list[dict]]:
     """آلية إلغاء أزواج عامة تعمل **ضمن حزمة (مادة × عرض مفرق) واحدة
     فقط** — بمطابقة الكمية والهدايا حصراً، بلا أي اشتراط على الزبون
     (تصحيح 2026-08-31: 'للدقة رح نهمل الفلترة على اسم الصيدلية').
     `is_target(row)` يحدد أي الأسطر من النوع المطلوب إلغاؤه (مثل "م.
-    مبيع" أو المرتجعات). يرجع (الأسطر الباقية، عدد الأزواج الملغاة معاً،
-    الأسطر المستهدفة التي أُلغيت بمفردها بلا مطابقة)."""
+    مبيع" أو المرتجعات).
+
+    **تعديل 2026-10-04:** إن لم يوجد سطر بيع واحد يطابق السطر المستهدف
+    تماماً، يُحاوَل الآن (قبل اعتباره "بلا مطابقة") إيجاد **تجميع عدة
+    فواتير بيع** (انظر `_find_pool_match` أعلاه) يطابق كميته وهداياه
+    معاً بالضبط؛ إن وُجد يُحذف الكل معاً (كحالة الزوج المباشر)، ويُسجَّل
+    بقائمة `pool_matches` منفصلة للتدقيق والعرض بشيت مخصص بالتصدير —
+    بطلب المستخدم الصريح بعد شرح حالة فاتورة "م. مبيع ج: 27" الحقيقية.
+
+    يرجع (الأسطر الباقية، عدد الأزواج المباشرة الملغاة معاً، الأسطر
+    المستهدفة التي بقيت بلا أي مطابقة (مباشرة أو تجميع)، قائمة مطابقات
+    التجميع [{'target': السطر المستهدف, 'matched': [أسطر البيع المطابقة]}])."""
     remaining = list(rows)
     cancelled_pairs = 0
     standalone: list[MovementRow] = []
+    pool_matches: list[dict] = []
     targets = [r for r in remaining if is_target(r)]
 
     for t in targets:
@@ -326,32 +449,58 @@ def _cancel_pairs_by_qty_gifts(rows: list[MovementRow], is_target) -> tuple[list
             remaining.remove(t)
             remaining.remove(match)
             cancelled_pairs += 1
+            continue
+
+        pool_candidates = [r for r in remaining if r is not t and not is_target(r)]
+        pool = _find_pool_match(t.qty, t.gifts, pool_candidates)
+        if pool is not None and pool:
+            remaining.remove(t)
+            for r in pool:
+                remaining.remove(r)
+            pool_matches.append({"target": t, "matched": pool})
         else:
             remaining.remove(t)
             standalone.append(t)
-    return remaining, cancelled_pairs, standalone
+    return remaining, cancelled_pairs, standalone, pool_matches
 
 
-def cancel_mabee_pairs(rows: list[MovementRow]) -> tuple[list[MovementRow], int, list[MovementRow]]:
+def cancel_mabee_pairs(rows: list[MovementRow]) -> tuple[list[MovementRow], int, list[MovementRow], list[dict]]:
     """يعالج فواتير "م. مبيع" ضمن حزمة (مادة × عرض مفرق) واحدة — مستبعدة
     دائماً من الحساب (انظر EXCLUDED_INVOICE_PREFIXES)، سواء وُجد سطر بيع
-    مطابق (بنفس الكمية والهدايا، بلا اشتراط الزبون) أم لا."""
-    remaining, cancelled, standalone = _cancel_pairs_by_qty_gifts(rows, lambda r: r.is_excluded_type)
+    مطابق واحد (بنفس الكمية والهدايا، بلا اشتراط الزبون)، أو تجميع عدة
+    فواتير بيع يطابقها معاً (تعديل 2026-10-04 — انظر `_find_pool_match`)،
+    أم لا يوجد أي مطابقة (تبقى مستبعدة بمفردها كالسابق)."""
+    remaining, cancelled, standalone, pool_matches = _cancel_pairs_by_qty_gifts(rows, lambda r: r.is_excluded_type)
     for r in standalone:
-        r.note = "فاتورة 'م. مبيع' (تصحيح/سحب مبيعات) — مستبعدة دائماً من الحساب، بلا سطر بيع مطابق"
-    return remaining, cancelled, standalone
+        r.note = "فاتورة 'م. مبيع' (تصحيح/سحب مبيعات) — مستبعدة دائماً من الحساب، بلا سطر بيع مطابق (مفرد أو تجميع)"
+    for pm in pool_matches:
+        t = pm["target"]
+        n = len(pm["matched"])
+        t.note = (f"فاتورة 'م. مبيع' (تصحيح/سحب مبيعات) بكمية {t.qty} وهدايا {t.gifts} — "
+                  f"أُلغيت بتجميع {n} فاتورة بيع (مجموع كمياتها وهداياها يطابقها تماماً)")
+        for r in pm["matched"]:
+            r.note = f"أُلغيت ضمن تجميع مقابل فاتورة 'م. مبيع' {t.invoice} (تصحيح/سحب مبيعات كبير الحجم)"
+    return remaining, cancelled, standalone, pool_matches
 
 
-def cancel_return_pairs(rows: list[MovementRow]) -> tuple[list[MovementRow], int]:
+def cancel_return_pairs(rows: list[MovementRow]) -> tuple[list[MovementRow], int, list[dict]]:
     """يلغي سطر المرتجع مع سطر البيع الذي يملك نفس الكمية والهدايا (بلا
-    اشتراط الزبون، تصحيح 2026-08-31) ضمن حزمة (مادة × عرض مفرق) واحدة.
-    مرتجع بلا مطابقة يبقى ضمن البيانات ويُعلَّم للمراجعة، لا يُستبعد."""
-    remaining, cancelled, standalone = _cancel_pairs_by_qty_gifts(rows, lambda r: r.is_return and not r.is_excluded_type)
+    اشتراط الزبون، تصحيح 2026-08-31)، أو مع تجميع عدة فواتير بيع يطابقها
+    معاً (تعديل 2026-10-04 — نفس آلية "م. مبيع" أعلاه)، ضمن حزمة (مادة ×
+    عرض مفرق) واحدة. مرتجع بلا أي مطابقة (مفردة أو تجميع) يبقى ضمن
+    البيانات ويُعلَّم للمراجعة، لا يُستبعد."""
+    remaining, cancelled, standalone, pool_matches = _cancel_pairs_by_qty_gifts(rows, lambda r: r.is_return and not r.is_excluded_type)
     for r in standalone:
         # أُعيد سطر المرتجع بلا مطابقة إلى remaining (لا يُستبعد بمفرده)
-        r.note = "مرتجع بدون سطر بيع مطابق (نفس الكمية والهدايا) — بقي ضمن الحساب ليُراجع يدوياً"
+        r.note = "مرتجع بدون سطر بيع مطابق (مفرد أو تجميع عدة فواتير) — بقي ضمن الحساب ليُراجع يدوياً"
         remaining.append(r)
-    return remaining, cancelled
+    for pm in pool_matches:
+        t = pm["target"]
+        n = len(pm["matched"])
+        t.note = f"مرتجع بكمية {t.qty} وهدايا {t.gifts} — أُلغي بتجميع {n} فاتورة بيع (مجموع كمياتها وهداياها يطابقه تماماً)"
+        for r in pm["matched"]:
+            r.note = f"أُلغيت ضمن تجميع مقابل المرتجع {t.invoice}"
+    return remaining, cancelled, pool_matches
 
 
 def merge_zero_qty_rows(rows: list[MovementRow]) -> tuple[list[MovementRow], int, list[MovementRow]]:
@@ -418,7 +567,9 @@ class ClaimGroup:
     row_calcs: list = field(default_factory=list)  # RowCalc لكل الأسطر (مُدرَجة ومستبعدة) — للتدقيق الكامل
     cancelled_mabee_pairs: int = 0
     excluded_mabee_rows: list = field(default_factory=list)
+    pool_matched_mabee: list = field(default_factory=list)   # تعديل 2026-10-04 — [{'target','matched'}]
     cancelled_return_pairs: int = 0
+    pool_matched_returns: list = field(default_factory=list)  # تعديل 2026-10-04 — [{'target','matched'}]
     merged_zero_qty_rows: int = 0
     unmerged_zero_qty_rows: list = field(default_factory=list)
     eligible: bool = True
@@ -431,8 +582,8 @@ def compute_bucket(item: str, retail_offer: str, rows: list[MovementRow]) -> Cla
 
     # الخطوة 5: إلغاء أزواج "م. مبيع" ثم أزواج المرتجع/المبيع — ضمن هذه
     # الحزمة فقط، بمطابقة الكمية والهدايا بلا اشتراط الزبون.
-    remaining, g.cancelled_mabee_pairs, g.excluded_mabee_rows = cancel_mabee_pairs(rows)
-    remaining, g.cancelled_return_pairs = cancel_return_pairs(remaining)
+    remaining, g.cancelled_mabee_pairs, g.excluded_mabee_rows, g.pool_matched_mabee = cancel_mabee_pairs(rows)
+    remaining, g.cancelled_return_pairs, g.pool_matched_returns = cancel_return_pairs(remaining)
 
     # تعديل 2026-08-31 (ثالث): دمج أسطر الكمية=صفر مع سطر آخر لنفس الزبون
     # (إضافة هداياها إليه) ثم حذفها بالكامل — قبل تطبيق المعادلة.
@@ -440,12 +591,28 @@ def compute_bucket(item: str, retail_offer: str, rows: list[MovementRow]) -> Cla
 
     retail = parse_offer(retail_offer)
     if retail is None:
+        # تعديل 2026-09-26 بطلب المستخدم الصريح: "هناك عروض مميزة لا يوجد
+        # لها عرض مفرق، أحتاج منك أن بهذه الحالة أن تجمع كل الهدايا للمادة
+        # في حال وجود عرض مميز لها" — أي أن حزمة (مادة × عرض مفرق) بلا
+        # قيمة "عرض مفرق" صالحة (وهي مؤهلة أصلاً بعرض مميز فعلي، وإلا لم
+        # تكن لتصل هنا — انظر فلتر has_special_offer في process()) لم تعد
+        # تُترك بمطالبة فارغة بانتظار مراجعة يدوية؛ بل تُحتسَب مطالبتها
+        # مباشرة = مجموع كل هدايا أسطر الحزمة الباقية (بعد إلغاء أزواج "م.
+        # مبيع"/المرتجعات ودمج أسطر الكمية=صفر أعلاه)، بلا أي طرح لناتج
+        # معادلة — لأن المعادلة أصلاً تحتاج نسبة عرض مفرق غير متوفرة هنا.
+        # يبقى العلم eligible=False (بمعنى: لم تُطبَّق معادلة عرض المفرق
+        # على هذه الحزمة) للتمييز في شيت المراجعة المخصص، لكن قيمة
+        # المطالبة لم تعد فارغة، وكل الأسطر تُعتبر "مُدرَجة" (لا يوجد هنا
+        # مفهوم صافي سالب/موجب أصلاً بلا معادلة).
         g.eligible = False
-        g.note = "لا توجد قيمة 'عرض مفرق' صالحة لهذه الحزمة — لا يمكن تطبيق المعادلة (تحتاج مراجعة يدوية)"
-        # نُبقي الأسطر ظاهرة كاملة (بكميتها وهداياها الخام) بلا معادلة، للمراجعة اليدوية.
+        g.note = ("لا توجد قيمة 'عرض مفرق' صالحة لهذه الحزمة — تعذّر تطبيق المعادلة، "
+                  "فاحتُسبت المطالبة كمجموع كل هدايا أسطر الحزمة مباشرة (بطلب المستخدم "
+                  "الصريح 2026-09-26) بدل تركها فارغة للمراجعة اليدوية")
         g.qty = sum((r.qty for r in remaining), Decimal("0"))
         g.gifts = sum((r.gifts for r in remaining), Decimal("0"))
-        g.row_calcs = [RowCalc(row=r, formula_result=Decimal("0"), net=Decimal("0"), included=False) for r in remaining]
+        g.formula_result = Decimal("0")
+        g.claim_value = g.gifts
+        g.row_calcs = [RowCalc(row=r, formula_result=Decimal("0"), net=r.gifts, included=True) for r in remaining]
         return g
 
     small, large = retail
@@ -505,6 +672,7 @@ def process(file_obj) -> dict:
     excluded_nonpositive_rows: list = []  # عناصر RowCalc غير المُدرَجة (صافٍ ≤ صفر)
     merged_zero_qty_rows = 0
     unmerged_zero_qty_rows: list[MovementRow] = []
+    pool_matches: list[dict] = []  # تعديل 2026-10-04 — كل مطابقات التجميع (م. مبيع + مرتجعات)، لكل الحزم
 
     for g in claim_groups:
         excluded_mabee_rows.extend(g.excluded_mabee_rows)
@@ -512,6 +680,8 @@ def process(file_obj) -> dict:
         cancelled_return_pairs += g.cancelled_return_pairs
         merged_zero_qty_rows += g.merged_zero_qty_rows
         unmerged_zero_qty_rows.extend(g.unmerged_zero_qty_rows)
+        for pm in (g.pool_matched_mabee + g.pool_matched_returns):
+            pool_matches.append({"item": g.item, "retail_offer": g.retail_offer, **pm})
         for rc in g.row_calcs:
             if rc.row.is_return and "بدون سطر بيع مطابق" in (rc.row.note or ""):
                 unmatched_returns.append(rc.row)
@@ -556,4 +726,7 @@ def process(file_obj) -> dict:
         "total_gifts": total_gifts,
         "total_formula_result": total_formula_result,
         "total_claim_value": total_claim_value,
+        "pool_matches": pool_matches,
+        "pool_matches_count": len(pool_matches),
+        "pool_matched_rows_count": sum(len(pm["matched"]) for pm in pool_matches),
     }

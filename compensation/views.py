@@ -54,6 +54,8 @@ def run_view(request):
         excluded_nonpositive_rows_count=result["excluded_nonpositive_rows_count"],
         merged_zero_qty_rows_count=result["merged_zero_qty_rows"],
         unmerged_zero_qty_rows_count=result["unmerged_zero_qty_rows_count"],
+        pool_matches_count=result["pool_matches_count"],
+        pool_matched_rows_count=result["pool_matched_rows_count"],
         items_count=result["items_count"], groups_count=result["groups_count"],
         ineligible_groups_count=len(result["ineligible_groups"]),
         total_qty=Decimal(str(result["total_qty"])), total_gifts=Decimal(str(result["total_gifts"])),
@@ -68,7 +70,8 @@ def run_view(request):
         messages.warning(
             request,
             f"توجد {len(result['ineligible_groups'])} حزمة (مادة × عرض مفرق) بلا قيمة "
-            f"\"عرض مفرق\" صالحة — راجع شيت \"حزم بلا عرض مفرق صالح\" داخل ملف النتيجة.",
+            f"\"عرض مفرق\" صالحة — احتُسبت مطالبتها كمجموع كل هداياها مباشرة (بلا معادلة). "
+            f"راجع شيت \"حزم بلا عرض مفرق صالح\" داخل ملف النتيجة.",
         )
     else:
         messages.success(request, f"تمت معالجة {result['items_count']} مادة بنجاح، وكل الحزم محتسبة.")
@@ -84,6 +87,13 @@ def run_view(request):
             f"فواتير \"م. مبيع\": {result['cancelled_mabee_pairs']} زوج (مع سطر بيع مطابق) أُلغي "
             f"بالكامل، و{result['excluded_mabee_rows_count']} سطر استُبعد بمفرده — راجع شيت "
             f"\"فواتير م. مبيع مستبعدة\".",
+        )
+    if result["pool_matches_count"]:
+        messages.info(
+            request,
+            f"تم إلغاء {result['pool_matches_count']} سطر تصحيح/مرتجع كبير الحجم (بلا فاتورة بيع "
+            f"واحدة تطابقه) مقابل تجميع {result['pool_matched_rows_count']} فاتورة بيع أصغر "
+            f"(مجموع كمياتها وهداياها يطابقه تماماً) — راجع شيت \"مطابقات تجميع فواتير البيع\".",
         )
     if result["excluded_nonpositive_rows_count"]:
         messages.info(

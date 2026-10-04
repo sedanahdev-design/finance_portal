@@ -11,6 +11,12 @@
 {% if run.flagged_rows_count %}
 <div class="alert alert-warning">⚠ يوجد {{ run.flagged_rows_count }} حركة تحتاج مراجعة يدوية (اسم أو فئة غير معروفة) — راجع شيت «حركات للمراجعة» داخل الملف المُصدَّر قبل اعتماد الأرقام نهائياً.</div>
 {% endif %}
+{% if run.fuzzy_biyad_rows_count %}
+<div class="alert alert-warning" style="background:#FEF3E2;border-color:#FDBA74;">⚠ يوجد {{ run.fuzzy_biyad_rows_count }} حركة فيها مشارك استُخرج اسمه من نص البيان بمطابقة تقريبية فقط (لوّنت برتقالياً في الملف) — راجع شيت «مطابقة تقريبية من البيان» للتأكد يدوياً.</div>
+{% endif %}
+{% if run.unresolved_rows_count %}
+<div class="alert alert-danger">⛔ يوجد {{ run.unresolved_rows_count }} حركة بلا أي موزع معروف إطلاقاً (لوّنت أحمر، ولم تُحتسب لأي موزع) — راجع شيت «حركات بلا أي موزع معروف» واحتسبها يدوياً.</div>
+{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.distributors_count }}</div><div class="label">عدد الموزعين</div></div></div>
@@ -25,7 +31,7 @@
   <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.flagged_rows_count }}</div><div class="label">حركات للمراجعة</div></div></div>
 </div>
 
-<p class="text-muted small mb-2">اضغط <i class="bi bi-chevron-down"></i> بجانب أي موزع لعرض تفصيل عمولة التحصيل حسب الحالة (منفرد / مع شخص آخر / مجموعة). التفصيل الكامل (مع المرتجعات) متوفر في شيت «تفصيل كل موزع حسب الحالة» داخل الملف المُصدَّر.</p>
+<p class="text-muted small mb-2">اضغط <i class="bi bi-chevron-down"></i> بجانب أي موزع لعرض تفصيل عمولة التحصيل حسب الحالة (منفرد / مع شخص آخر / مجموعة) وحسب الدور (سائق السيارة/مساعد/دراجة/...). التفصيل الكامل (مع المرتجعات) متوفر في شيتَي «تفصيل كل موزع حسب الحالة» و«تفصيل كل موزع حسب الدور» داخل الملف المُصدَّر.</p>
 <div class="table-wrap">
   <table class="table-clean">
     <thead><tr><th style="width:2.5rem;"></th><th>اسم الموزع</th><th>عمولة التحصيل</th><th>خصم المرتجعات</th><th>الصافي</th></tr></thead>
@@ -33,7 +39,7 @@
       {% for row in preview %}
       <tr>
         <td>
-          {% if row.situations %}
+          {% if row.situations or row.roles %}
           <button class="btn btn-sm btn-outline-soft" type="button" data-bs-toggle="collapse" data-bs-target="#sit-{{ forloop.counter }}" aria-expanded="false">
             <i class="bi bi-chevron-down"></i>
           </button>
@@ -44,10 +50,12 @@
         <td>{{ row.returns|floatformat:2|intcomma }}</td>
         <td class="fw-bold">{{ row.commission|floatformat:2|intcomma }}</td>
       </tr>
-      {% if row.situations %}
+      {% if row.situations or row.roles %}
       <tr class="collapse" id="sit-{{ forloop.counter }}">
         <td></td>
         <td colspan="4" class="p-0">
+          {% if row.situations %}
+          <p class="text-muted small px-2 pt-2 mb-1">حسب عدد المشاركين بالحركة:</p>
           <table class="table-clean mb-0">
             <thead><tr><th>الحالة</th><th>عدد الحركات</th><th>إجمالي المبلغ</th><th>العمولة (تحصيل نقدي فقط)</th></tr></thead>
             <tbody>
@@ -61,6 +69,24 @@
               {% endfor %}
             </tbody>
           </table>
+          {% endif %}
+          {% if row.roles %}
+          <p class="text-muted small px-2 pt-2 mb-1">حسب دور/حالة الموزع بالحركة (سائق السيارة/مساعد/دراجة/...):</p>
+          <table class="table-clean mb-0">
+            <thead><tr><th>الدور/الحالة</th><th>عدد الحركات</th><th>إجمالي المبلغ</th><th>العمولة</th><th>النسبة الفعلية</th></tr></thead>
+            <tbody>
+              {% for s in row.roles %}
+              <tr>
+                <td>{{ s.label }}</td>
+                <td>{{ s.count }}</td>
+                <td>{{ s.amount|floatformat:2|intcomma }}</td>
+                <td>{{ s.commission|floatformat:2|intcomma }}</td>
+                <td>{{ s.rate }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
         </td>
       </tr>
       {% endif %}

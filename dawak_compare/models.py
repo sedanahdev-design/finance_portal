@@ -27,6 +27,15 @@ class DawakCompareRun(models.Model):
     payments_true_diff_count = models.IntegerField(default=0)
     payments_true_diff_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
 
+    # تصحيح 2026-09-30 (طلب المستخدم الصريح): مطابقة إجمالي كل حساب فرعي
+    # بدواك مقابل إجمالي حركات هبة المُسنَدة إليه عبر "مركز الكلفة" (مطابقة
+    # تقريبية بالاسم، راجع توثيق engine.py) — بدل الاكتفاء بطرح مدين/دائن
+    # داخل ملف دواك وحده بلا أي مقارنة فعلية مع هبة.
+    cc_matched_count = models.IntegerField(default=0)
+    cc_mismatched_count = models.IntegerField(default=0)
+    cc_no_hiba_data_count = models.IntegerField(default=0)
+    cc_unresolved_hiba_rows = models.IntegerField(default=0)
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

@@ -79,20 +79,27 @@ def build_workbook(result, claims_table):
     ws0.title = "الملخص"
     ws0.sheet_view.rightToLeft = True
     ws0.append([
-        "المنهجية (إعادة بناء ثانية بطلب المستخدم — آخر تحديث 2026-08-31): تعبئة رقم الفاتورة "
+        "المنهجية (آخر تحديث 2026-10-04): تعبئة رقم الفاتورة "
         "الصفري من السطر السابق، ثم فلترة العروض المميزة فقط، ثم تجميع حسب (المادة × عرض المفرق) "
         "فقط (بلا اسم الصيدلية/الزبون إطلاقاً)، ثم داخل كل حزمة: إلغاء أزواج \"م. مبيع\"/المرتجعات "
-        "المتطابقة (بنفس الكمية والهدايا، بلا اشتراط الزبون)، ثم دمج كل سطر كميته = صفر مع سطر آخر "
+        "المتطابقة (بنفس الكمية والهدايا، بلا اشتراط الزبون) — وإن لم توجد فاتورة بيع واحدة مطابقة "
+        "تماماً، يُحاوَل إيجاد تجميع عدة فواتير بيع يطابق كميته وهداياه معاً (تعديل 2026-10-04 — "
+        "حالة \"100+80\" الاستثنائية، راجع شيت \"مطابقات تجميع فواتير البيع\" إن وُجد)، "
+        "ثم دمج كل سطر كميته = صفر مع سطر آخر "
         "لنفس الزبون (بإضافة هداياه إليه) وحذف سطر الكمية=صفر، ثم لكل سطر بمفرده: ناتج المعادلة "
         "= الكمية × (الصغير ÷ الكبير) من \"عرض المفرق\"، والصافي = الهدايا − ناتج المعادلة. "
         "الأسطر ذات الصافي السالب أو الصفري تُحذف بالكامل من الحساب (بطلب المستخدم الصريح، رغم "
         "تعارض جزئي موثَّق مع دليل مرجعي حي — انظر ملاحظة التحقق في compensation/engine.py). "
-        "المطالبة النهائية للحزمة = مجموع هدايا الأسطر المُدرَجة − مجموع ناتج معادلتها."
+        "المطالبة النهائية للحزمة = مجموع هدايا الأسطر المُدرَجة − مجموع ناتج معادلتها. "
+        "أما الحزم بلا قيمة \"عرض مفرق\" صالحة (تعذّر تطبيق المعادلة عليها) فمطالبتها = مجموع كل "
+        "هدايا أسطرها مباشرة بلا طرح أي معادلة (بطلب المستخدم الصريح 2026-09-26) — راجع شيت "
+        "\"حزم بلا عرض مفرق صالح\"."
     ])
     ws0.append([])
     _header(ws0, ["إجمالي سطور الحركة الخام", "أسطر بعد فلتر العروض المميزة",
                   "مواد مستبعدة كلياً (بلا عرض مميز)", "فواتير م. مبيع مستبعدة",
                   "أزواج م. مبيع/مبيع محذوفة معاً", "أزواج مرتجع/مبيع محذوفة",
+                  "مطابقات تجميع (تصحيح/مرتجع مع عدة فواتير بيع)", "فواتير بيع أُلغيت بتجميع",
                   "مرتجعات بدون مبيع مطابق", "أسطر كمية=صفر مدموجة بسطر آخر",
                   "أسطر كمية=صفر بلا زبون آخر لدمجها", "أسطر صافٍ سالب/صفري مستبعدة", "عدد المواد",
                   "عدد الحزم (مادة×عرض مفرق)", "حزم بلا عرض مفرق صالح",
@@ -101,14 +108,15 @@ def build_workbook(result, claims_table):
     ws0.append([
         result["raw_row_count"], result["offer_row_count"], result["ignored_items_count"],
         result["excluded_mabee_rows_count"], result["cancelled_mabee_pairs"],
-        result["cancelled_pairs"], result["unmatched_returns_count"],
+        result["cancelled_pairs"], result["pool_matches_count"], result["pool_matched_rows_count"],
+        result["unmatched_returns_count"],
         result["merged_zero_qty_rows"], result["unmerged_zero_qty_rows_count"],
         result["excluded_nonpositive_rows_count"], result["items_count"],
         result["groups_count"], len(result["ineligible_groups"]),
         float(result["total_qty"]), float(result["total_gifts"]),
         float(result["total_formula_result"]), float(result["total_claim_value"]),
     ])
-    for i, w in enumerate([20, 20, 20, 18, 20, 20, 18, 20, 20, 20, 14, 20, 18, 18, 18, 22, 20], start=1):
+    for i, w in enumerate([20, 20, 20, 18, 20, 20, 22, 18, 18, 20, 20, 20, 14, 20, 18, 18, 18, 22, 20], start=1):
         ws0.column_dimensions[get_column_letter(i)].width = w
 
     if result["ignored_items"]:
@@ -160,16 +168,22 @@ def build_workbook(result, claims_table):
         material_qty = material_gifts = material_formula = material_claim = 0
         for g in sorted(groups, key=lambda g: g.retail_offer):
             if not g.eligible:
+                # تعديل 2026-09-26: لم تعد هذه الحزم تُستبعَد من التفصيل/
+                # الإجمالي — لها الآن مطالبة محتسبة (مجموع الهدايا مباشرة،
+                # بلا معادلة). تُطبع لافتة توضيحية ثم تفصيل أسطرها وصف
+                # إجماليها كأي حزمة أخرى (انظر compute_bucket في engine.py).
                 ws.append([f"⚠ حزمة بعرض مفرق '{g.retail_offer}' — {g.note}"] + [""] * (len(ROW_DETAIL_HEADERS) - 1))
                 for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
                     ws.cell(row=ws.max_row, column=c).fill = FLAG_FILL
-                continue
             for rc in g.row_calcs:
                 ws.append(_row_calc_values(rc))
                 if not rc.included:
                     for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
                         ws.cell(row=ws.max_row, column=c).fill = EXCLUDED_ROW_FILL
-            total_row = [f"إجمالي عرض المفرق '{g.retail_offer}'", "", "", "",
+            total_label = f"إجمالي عرض المفرق '{g.retail_offer}'"
+            if not g.eligible:
+                total_label += " (بلا معادلة — مجموع الهدايا مباشرة)"
+            total_row = [total_label, "", "", "",
                          float(g.qty), float(g.gifts), float(g.formula_result), float(g.claim_value), "", ""]
             ws.append(total_row)
             for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
@@ -181,8 +195,7 @@ def build_workbook(result, claims_table):
             material_formula += (g.formula_result or 0)
             material_claim += (g.claim_value or 0)
 
-        eligible_count = sum(1 for g in groups if g.eligible)
-        if eligible_count > 1:
+        if len(groups) > 1:
             ws.append(["إجمالي المادة (كل حزم عروض المفرق)", "", "", "",
                        float(material_qty), float(material_gifts), float(material_formula),
                        float(material_claim), "", ""])
@@ -198,8 +211,9 @@ def build_workbook(result, claims_table):
         ws_neg.sheet_view.rightToLeft = True
         ws_neg.append([
             "هذه حزم (مادة × عرض مفرق) لا تملك قيمة \"عرض مفرق\" صالحة (فارغة/\"-\"/\"0\" أو بصيغة "
-            "غير مفهومة)، فتعذّر تطبيق المعادلة عليها — الكمية والهدايا ظاهرة كاملة (خام، بلا حذف "
-            "أسطر سالبة/صفرية لعدم وجود معادلة أصلاً)، لكن بلا قيمة مطالبة. راجعها يدوياً."
+            "غير مفهومة)، فتعذّر تطبيق المعادلة عليها. بطلب المستخدم الصريح 2026-09-26: قيمة "
+            "مطالبتها = مجموع كل هدايا أسطر الحزمة مباشرة (خام، بلا حذف أسطر سالبة/صفرية لعدم وجود "
+            "معادلة أصلاً، وبلا أي طرح لناتج معادلة) — لم تعد فارغة. هذا الشيت يبقى للمرجعية والتدقيق."
         ])
         _header(ws_neg, GROUP_HEADERS)
         for g in result["ineligible_groups"]:
@@ -223,6 +237,36 @@ def build_workbook(result, claims_table):
                 ws_mb.cell(row=ws_mb.max_row, column=c).fill = FLAG_FILL
         for i, w in enumerate([16, 12, 34, 40, 12, 12, 12, 8, 8, 46], start=1):
             ws_mb.column_dimensions[get_column_letter(i)].width = w
+
+    if result["pool_matches"]:
+        ws_pool = wb.create_sheet("مطابقات تجميع فواتير البيع")  # اسم ≤31 محرفاً (حد Excel)
+        ws_pool.sheet_view.rightToLeft = True
+        ws_pool.append([
+            "تعديل 2026-10-04 بطلب المستخدم الصريح: حين لا يوجد لسطر \"م. مبيع\" (تصحيح/سحب مبيعات) "
+            "أو مرتجع فاتورة بيع واحدة بنفس كميته وهداياه بالضبط لإلغائه معها، يُحاوَل إيجاد تجميع "
+            "عدة فواتير بيع (ضمن نفس المادة وعرض المفرق) يكون مجموع كمياتها ومجموع هداياها معاً "
+            "يطابق السطر المستهدف تماماً، فتُلغى كلها معاً (كالمطابقة المباشرة). مثال حقيقي دفع لهذا "
+            "التعديل: فاتورة \"م. مبيع ج: 27\" لـ\"مستودع بركات- دمشق\" (مادة غلوبيفيت كبير، كمية 100 "
+            "وهدايا 80) طابقتها المالية يدوياً بتجميع 7 فواتير بيع أصغر، بدل تركها مستبعدة بمفردها "
+            "بلا أي أثر على المجموع."
+        ])
+        ws_pool.append([])
+        for pm in result["pool_matches"]:
+            t = pm["target"]
+            ws_pool.append([f"سطر مستهدَف: {pm['item']} — عرض مفرق '{pm['retail_offer']}' — "
+                             f"فاتورة {t.invoice} ({t.date}) — {t.customer} — "
+                             f"كمية {float(t.qty)} / هدايا {float(t.gifts)}"])
+            for c in range(1, 2):
+                ws_pool.cell(row=ws_pool.max_row, column=c).font = Font(bold=True)
+                ws_pool.cell(row=ws_pool.max_row, column=c).fill = TOTAL_FILL
+            _header(ws_pool, ["الفاتورة", "التاريخ", "اسم الزبون", "كمية", "الهدايا"])
+            for r in pm["matched"]:
+                ws_pool.append([r.invoice, r.date, r.customer, float(r.qty), float(r.gifts)])
+                for c in range(1, 6):
+                    ws_pool.cell(row=ws_pool.max_row, column=c).fill = FLAG_FILL
+            ws_pool.append([])
+        for i, w in enumerate([18, 12, 36, 12, 12], start=1):
+            ws_pool.column_dimensions[get_column_letter(i)].width = w
 
     if result["excluded_nonpositive_rows"]:
         ws_np = wb.create_sheet("أسطر صافٍ سالب أو صفري مستبعدة")

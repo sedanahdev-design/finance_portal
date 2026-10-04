@@ -9,7 +9,10 @@ from core.audit import log_action
 from core.decorators import module_required
 from core.models import AuditLog
 from distributor_commissions.engine import (
+    ROLE_ORDER,
+    compute_collection_role_breakdown,
     compute_collection_situation_breakdown,
+    compute_return_role_breakdown,
     compute_return_situation_breakdown,
     compute_totals,
     parse_distributor_file,
@@ -48,8 +51,11 @@ def run_view(request):
     result = compute_totals(parsed)
     situation_breakdown = compute_collection_situation_breakdown(parsed.collection_rows)
     return_situation_breakdown = compute_return_situation_breakdown(parsed.return_rows)
+    role_breakdown = compute_collection_role_breakdown(parsed.collection_rows)
+    return_role_breakdown = compute_return_role_breakdown(parsed.return_rows)
 
     total_debit = sum((r.debit for r in parsed.collection_rows), Decimal("0"))
+    unresolved_rows_count = len(parsed.unresolved_collection_rows) + len(parsed.unresolved_return_rows)
     summary = {
         "rows_count": len(parsed.collection_rows),
         "return_rows_count": len(parsed.return_rows),
@@ -67,11 +73,15 @@ def run_view(request):
         total_commission=summary["total_commission"], collection_total=summary["collection_total"],
         return_total=summary["return_total"], flagged_rows_count=len(parsed.flagged_rows),
         warehouse_excluded_count=parsed.warehouse_excluded_count,
+        fuzzy_biyad_rows_count=len(parsed.fuzzy_biyad_rows),
+        unresolved_rows_count=unresolved_rows_count,
     )
     buf = build_workbook(
         parsed, result, summary, {"ledger_file_name": ledger_f.name},
         situation_breakdown=situation_breakdown,
         return_situation_breakdown=return_situation_breakdown,
+        role_breakdown=role_breakdown,
+        return_role_breakdown=return_role_breakdown,
     )
     run.result_file.save(f"عمولة_تحصيل_{run.pk}.xlsx", ContentFile(buf.read()), save=True)
 
@@ -85,6 +95,18 @@ def run_view(request):
         )
     else:
         messages.success(request, f"تم احتساب عمولة تحصيل {summary['distributors_count']} موزع بنجاح.")
+    if parsed.fuzzy_biyad_rows:
+        messages.warning(
+            request,
+            f"{len(parsed.fuzzy_biyad_rows)} حركة فيها مشارك من نص البيان بمطابقة تقريبية فقط (لوّنت برتقالياً) "
+            f"— راجع شيت 'مطابقة تقريبية من البيان' للتأكد يدوياً.",
+        )
+    if unresolved_rows_count:
+        messages.error(
+            request,
+            f"{unresolved_rows_count} حركة بلا أي موزع معروف إطلاقاً (لوّنت أحمر، ولم تُحتسب لأي موزع) "
+            f"— راجع شيت 'حركات بلا أي موزع معروف' واحتسبها يدوياً.",
+        )
 
     preview = [
         {
@@ -104,6 +126,22 @@ def run_view(request):
                 }
                 for sit, b in situation_breakdown.get(name, {}).items()
                 if b["count"] > 0
+            ],
+            # تفصيل الأدوار/الحالات (سائق السيارة/مساعد/دراجة/.../من البيان) —
+            # طلب المستخدم 2026-09-28: "توتال التحصيل لكل حالة ... ونسبة كل
+            # حالة". التفصيل الكامل (مع المرتجعات) في شيت "تفصيل كل موزع حسب
+            # الدور" بالملف المُصدَّر.
+            "roles": [
+                {
+                    "label": role,
+                    "count": b["count"],
+                    "amount": str(b["amount"]),
+                    "commission": str(b["commission"]),
+                    "rate": f"{(b['commission'] / b['amount'] * 100):.3f}%" if b["amount"] else "—",
+                }
+                for role in ROLE_ORDER
+                for b in [role_breakdown.get(name, {}).get(role)]
+                if b and b["count"] > 0
             ],
         }
         for name, amount in sorted(result["totals"].items())

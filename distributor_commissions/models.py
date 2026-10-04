@@ -26,6 +26,17 @@ class DistributorCommissionRun(models.Model):
     # الأرجح أنه سهو فردي في إعداد الملف المرجعي، موثَّق ومُبلَّغ للمستخدم.
     warehouse_excluded_count = models.IntegerField(default=0)
 
+    # تصحيح 2026-09-28 (طلب المستخدم الصريح) — انظر توثيق الحالتين في
+    # distributor_commissions/engine.py (parse_distributor_file):
+    #  - fuzzy_biyad_rows_count: حركات فيها مشارك استُخرج اسمه من نص البيان
+    #    بمطابقة تقريبية فقط (كنية/خطأ إملائي) — محتسَبة طبيعياً لكن تحتاج
+    #    تأكيداً يدوياً (لوّنت برتقالياً).
+    #  - unresolved_rows_count: حركات (تحصيل أو مرتجع) بلا أي موزع معروف
+    #    إطلاقاً — سابقاً كانت تُحذف صامتة، الآن تظهر بشيت مخصص أحمر بدل
+    #    ذلك، بلا احتساب عمولة لها.
+    fuzzy_biyad_rows_count = models.IntegerField(default=0)
+    unresolved_rows_count = models.IntegerField(default=0)
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

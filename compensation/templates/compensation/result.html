@@ -15,6 +15,7 @@
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.cancelled_pairs }}</div><div class="label">أزواج مرتجع/مبيع محذوفة</div></div></div>
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.cancelled_mabee_pairs }}</div><div class="label">أزواج "م. مبيع" محذوفة</div></div></div>
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.excluded_mabee_rows_count }}</div><div class="label">فواتير "م. مبيع" مستبعدة بمفردها</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.pool_matches_count }}</div><div class="label">تصحيحات/مرتجعات أُلغيت بتجميع فواتير</div></div></div>
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.merged_zero_qty_rows_count }}</div><div class="label">أسطر كمية=صفر مدموجة</div></div></div>
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.excluded_nonpositive_rows_count }}</div><div class="label">أسطر صافٍ سالب/صفري مستبعدة</div></div></div>
   <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.items_count }}</div><div class="label">عدد المواد المحتسبة</div></div></div>
@@ -34,6 +35,12 @@
 </div>
 {% endif %}
 
+{% if run.pool_matches_count %}
+<div class="alert alert-info">
+  تم إلغاء <strong>{{ run.pool_matches_count }}</strong> سطر "م. مبيع"/مرتجع كبير الحجم (بلا فاتورة بيع واحدة تطابقه تماماً) مقابل تجميع <strong>{{ run.pool_matched_rows_count }}</strong> فاتورة بيع أصغر (مجموع كمياتها وهداياها معاً يطابقه بالضبط) — تعديل 2026-10-04 بطلب المستخدم الصريح (حالة "100+80" الاستثنائية). راجع شيت "مطابقات تجميع فواتير البيع" داخل ملف النتيجة للتفصيل الكامل.
+</div>
+{% endif %}
+
 {% if run.unmatched_returns_count %}
 <div class="alert alert-warning">
   توجد <strong>{{ run.unmatched_returns_count }}</strong> مرتجع بلا سطر بيع مطابق (نفس المادة/الكمية/الهدايا) لإلغائه معه — بقيت هذه الأسطر ضمن الحساب. راجع شيت "مرتجعات بدون مبيع مطابق".
@@ -42,7 +49,7 @@
 
 {% if run.ineligible_groups_count %}
 <div class="alert alert-warning">
-  توجد <strong>{{ run.ineligible_groups_count }}</strong> حزمة (مادة × عرض مفرق) بلا قيمة "عرض مفرق" صالحة — تعذّر تطبيق المعادلة عليها. راجع شيت "حزم بلا عرض مفرق صالح" داخل ملف النتيجة.
+  توجد <strong>{{ run.ineligible_groups_count }}</strong> حزمة (مادة × عرض مفرق) بلا قيمة "عرض مفرق" صالحة — تعذّر تطبيق المعادلة عليها، فاحتُسبت مطالبتها كمجموع كل هداياها مباشرة (بلا طرح أي معادلة، بطلب المستخدم الصريح). راجع شيت "حزم بلا عرض مفرق صالح" داخل ملف النتيجة.
 </div>
 {% endif %}
 

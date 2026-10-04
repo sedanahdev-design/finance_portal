@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}نتيجة مطابقة أسعار الارجيفيت #{{ run.pk }}{% endblock %}
+{% block page_title %}نتيجة مطابقة أسعار الارجيفيت #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h2>نتيجة مطابقة أسعار الارجيفيت</h2><p>{{ run.created_at|date:"Y-m-d H:i" }} — سعر الصرف: {% if run.rate_mode == "fixed" %}ثابت {{ run.rate_lo }}{% else %}متغير بين {{ run.rate_lo }} و{{ run.rate_hi }}{% endif %}</p></div>
+  <a href="{% url 'argivit_compare:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.tier1_count }}</div><div class="label">مطابقين مباشرة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.tier2_count }}</div><div class="label">بعد خصم الحسم</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:#B45309;">{{ run.tier3_count }}</div><div class="label">عرض المفرق</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:#7C3AED;">{{ run.tier4_count }}</div><div class="label">عرض مميز</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.unmatched_count }}</div><div class="label">غير مطابقين</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.movement_rows_count }}</div><div class="label">إجمالي الحركات</div></div></div>
+</div>
+
+{% if run.unmatched_count %}
+<div class="alert alert-warning" style="background:#FFF7E0;border-color:#FDE68A;">
+  توجد {{ run.unmatched_count }} حركة لم تُطابَق بأي من المراحل الأربع — راجع شيت "غير مطابقين بكل الطرق السابقة" بالملف الكامل للتفاصيل.
+</div>
+{% endif %}
+
+<h5 class="fw-bold mb-2 mt-2">مطابقين مباشرة (المرحلة 1)</h5>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>اسم المادة</th><th>الإفرادي الفعلي</th><th>النطاق المتوقع</th></tr></thead>
+    <tbody>
+      {% for r in tier1_preview %}
+      <tr><td>{{ r.invoice }}</td><td>{{ r.customer }}</td><td>{{ r.item }}</td>
+        <td>{{ r.unit_price|floatformat:2|intcomma }}</td><td>{{ r.lo|floatformat:2 }} — {{ r.hi|floatformat:2 }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h5 class="fw-bold mb-2">مطابقين بعد خصم الحسم (المرحلة 2)</h5>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>اسم المادة</th><th>أساس المقارنة</th><th>النطاق المتوقع</th></tr></thead>
+    <tbody>
+      {% for r in tier2_preview %}
+      <tr><td>{{ r.invoice }}</td><td>{{ r.customer }}</td><td>{{ r.item }}</td>
+        <td>{{ r.basis }}</td><td>{{ r.lo|floatformat:2 }} — {{ r.hi|floatformat:2 }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h5 class="fw-bold mb-2">مطابق على العرض المفرق (المرحلة 3)</h5>
+<p class="text-muted" style="font-size:.85rem;">يتضمّن الملف الكامل بجانب هذا أيضاً فحص "فيتا فارما" (التزام الكميات والهدايا بالعروض) كتحقّق إضافي منفصل.</p>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>اسم المادة</th><th>أساس المقارنة</th><th>النطاق المتوقع</th></tr></thead>
+    <tbody>
+      {% for r in tier3_preview %}
+      <tr><td>{{ r.invoice }}</td><td>{{ r.customer }}</td><td>{{ r.item }}</td>
+        <td>{{ r.basis }}</td><td>{{ r.lo|floatformat:2 }} — {{ r.hi|floatformat:2 }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<details class="card-surface mb-4">
+  <summary class="fw-bold" style="cursor:pointer;">مطابق على العرض المميز (المرحلة 4)</summary>
+  <div class="table-wrap mt-3">
+    <table class="table-clean">
+      <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>اسم المادة</th><th>أساس المقارنة</th><th>النطاق المتوقع</th></tr></thead>
+      <tbody>
+        {% for r in tier4_preview %}
+        <tr><td>{{ r.invoice }}</td><td>{{ r.customer }}</td><td>{{ r.item }}</td>
+          <td>{{ r.basis }}</td><td>{{ r.lo|floatformat:2 }} — {{ r.hi|floatformat:2 }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+
+{% if unmatched_preview %}
+<h5 class="fw-bold mb-2">غير مطابقين بكل الطرق السابقة</h5>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>الفاتورة</th><th>اسم الزبون</th><th>اسم المادة</th><th>الكمية</th><th>الإفرادي</th><th>السعر الإجمالي</th></tr></thead>
+    <tbody>
+      {% for r in unmatched_preview %}
+      <tr class="row-diff"><td>{{ r.invoice }}</td><td>{{ r.customer }}</td><td>{{ r.item }}</td>
+        <td>{{ r.qty }}</td><td>{{ r.unit_price|floatformat:2|intcomma }}</td><td>{{ r.total_price|floatformat:2|intcomma }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h5 class="fw-bold mb-3 mt-4">مطابقة المبيعات مع المرتجعات — مفرق (حسب الزبون والمادة)</h5>
+<p class="text-muted" style="font-size:.85rem;">"بلا طرف مقابل" ليست خطأ — تعني أن هذا الزبون/المادة له بيع فقط أو مرتجع فقط بهذا الملف (طبيعي، غالباً مرتجع من شهر سابق)، فلا يوجد ما يُقارَن أصلاً. المقارنة الفعلية (سعر/حسم/عملة) تحصل فقط حين يوجد الطرفان معاً.</p>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.retail_matched_count }}</div><div class="label">متطابق (بيع ومرتجع معاً)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.retail_mismatched_count }}</div><div class="label">غير متطابق (بيع ومرتجع معاً)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.retail_no_counterpart_count }}</div><div class="label">بلا طرف مقابل (معلوماتي)</div></div></div>
+</div>
+{% if retail_mismatched_preview %}
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>اسم الزبون</th><th>اسم المادة</th><th>الأسباب</th></tr></thead>
+    <tbody>
+      {% for g in retail_mismatched_preview %}
+      <tr class="row-diff"><td>{{ g.customer }}</td><td>{{ g.item }}</td><td>{{ g.reasons|join:" | " }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if run.wholesale_file_name %}
+<h5 class="fw-bold mb-3 mt-4">مطابقة المبيعات مع المرتجعات — جملة (حسب الزبون والمادة)</h5>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.wholesale_matched_count }}</div><div class="label">متطابق (بيع ومرتجع معاً)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.wholesale_mismatched_count }}</div><div class="label">غير متطابق (بيع ومرتجع معاً)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.wholesale_no_counterpart_count }}</div><div class="label">بلا طرف مقابل (معلوماتي)</div></div></div>
+</div>
+{% if wholesale_mismatched_preview %}
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>اسم الزبون</th><th>اسم المادة</th><th>الأسباب</th></tr></thead>
+    <tbody>
+      {% for g in wholesale_mismatched_preview %}
+      <tr class="row-diff"><td>{{ g.customer }}</td><td>{{ g.item }}</td><td>{{ g.reasons|join:" | " }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

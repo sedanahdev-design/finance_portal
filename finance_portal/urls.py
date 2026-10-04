@@ -11,11 +11,11 @@ urlpatterns = [
     path("distributor-commissions/", include("distributor_commissions.urls")),
     path("data-cleaning/", include("data_cleaning.urls")),
     path("tax-inventory/", include("tax_inventory.urls")),
-    path("receivables/", include("receivables.urls")),
     path("dawak-compare/", include("dawak_compare.urls")),
     path("account-statement/", include("account_statement.urls")),
     path("compensation/", include("compensation.urls")),
     path("external-commissions/", include("external_commissions.urls")),
+    path("argivit-compare/", include("argivit_compare.urls")),
 ]
 
 if settings.DEBUG:

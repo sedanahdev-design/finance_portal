@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}مطابقة أسعار الارجيفيت{% endblock %}
+{% block page_title %}مطابقة أسعار الارجيفيت{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>مطابقة أسعار الارجيفيت والمبيعات مع المرتجعات</h2>
+    <p>ترفع ملف الحركة اليومية (مفرق) وقائمة الأسعار بالدولار ودفتر الأستاذ، وتحدد سعر الصرف، فتقارن المنصة السعر الإفرادي الفعلي بالسعر المرجعي على أربع مراحل متتالية، وتطابق كل مبيع مع مرتجعه حسب الزبون (وكذلك الجملة إن رفعت ملفها).</p>
+  </div>
+</div>
+
+<div class="card-surface mb-4">
+  <h6 class="fw-bold mb-2">منهجية المطابقة (2026-10-01)</h6>
+  <ul class="text-muted mb-0" style="padding-right:1.2rem;">
+    <li>سعر الصرف لا يُقرأ من أي ملف — تدخله بنفسك، ثابتاً (رقم واحد) أو متغيراً (نطاق بين حد أدنى وحد أعلى)، لأن النسبة الفعلية بين الإفرادي بالحركة وسعر القائمة بالدولار تفاوتت فعلياً بين 133 و140 بالملفات المرفقة بنفس الشهر.</li>
+    <li>المراحل الأربع بالترتيب لكل حركة لم تُطابَق بالمرحلة السابقة: (1) الإفرادي مباشرة ضمن نطاق السعر×الصرف، (2) بعد خصم الحسم من السعر الإجمالي، (3) بنسبة العرض المفرق (السعر×الرقم الأيسر÷مجموع رقمي العرض)، (4) نفس الشيء على العرض المميز. ما تبقّى يُعرَض كاملاً بشيت "غير مطابقين".</li>
+    <li>شيت "مطابق على العرض المفرق" يتضمّن أيضاً فحص "فيتا فارما" ذاته (التزام الكميات والهدايا بالعروض) كتحقّق إضافي منفصل تماماً عن قرار المطابقة السعرية.</li>
+    <li>مطابقة المبيع بالمرتجع (لكل زبون×مادة) تفحص تطابق السعر والحسم والعملة (دولاري أم لا، عبر دفتر الأستاذ) معاً — وتُعلِّم بوضوح أي حالة بلا طرف مقابل ضمن الملف بدل افتراض خطأ.</li>
+  </ul>
+</div>
+
+<div class="card-surface mb-4">
+  <form method="post" action="{% url 'argivit_compare:run' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.movement_file.label }}</label>
+        {{ form.movement_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.price_file.label }}</label>
+        {{ form.price_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.ledger_file.label }}</label>
+        {{ form.ledger_file }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ form.wholesale_file.label }}</label>
+        {{ form.wholesale_file }}
+      </div>
+    </div>
+    <hr class="my-4">
+    <h6 class="fw-bold mb-3">سعر الصرف</h6>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.rate_mode.label }}</label>
+        {{ form.rate_mode }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.rate_fixed.label }}</label>
+        {{ form.rate_fixed }}
+        <div class="form-text">عند اختيار "ثابت" فقط.</div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-bold">{{ form.rate_min.label }}</label>
+        {{ form.rate_min }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-bold">{{ form.rate_max.label }}</label>
+        {{ form.rate_max }}
+        <div class="form-text">عند اختيار "متغير" فقط.</div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> بدء المطابقة</button>
+  </form>
+</div>
+
+<h5 class="fw-bold mb-3">عمليات سابقة</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>#</th><th>التاريخ</th><th>مطابقين</th><th>بعد الحسم</th><th>عرض مفرق</th><th>عرض مميز</th><th>غير مطابقين</th><th></th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.pk }}</td><td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ r.tier1_count }}</td><td>{{ r.tier2_count }}</td><td>{{ r.tier3_count }}</td><td>{{ r.tier4_count }}</td>
+        <td>{{ r.unmatched_count }}</td>
+        <td><a href="{% url 'argivit_compare:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

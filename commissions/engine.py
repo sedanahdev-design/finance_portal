@@ -32,11 +32,24 @@
   1) قاعدة المبيعات الصافية: عمولة كل (مندوب، شركة) تُحسب على "صافي
      المبيعات" = إجمالي فواتير البيع (sales_rows) ناقص إجمالي فواتير
      المرتجع لنفس (المندوب، الشركة) من ملف المرتجعات (return_rows)، وليس
-     على إجمالي المبيعات الخام وحده. يُستثنى من هذا الطرح فقط الأسطر التي
-     سببها "مرتجع وهمي" (لا تُخصم من أحد). مثال تحقّق فعلي: "حسني البوشي"/
+     على إجمالي المبيعات الخام وحده. مثال تحقّق فعلي: "حسني البوشي"/
      "افاميا" — مبيعات خام 104,401.44، طرح 6 فواتير مرتجع حقيقية بقيمة
      17,762 (بأسباب: مغلق/تم إلغاء الطلب من قبل الزبون/كشف كامل مرتجع)
      يعطي 86,639.44 — يطابق شيت "نهائي" حرفياً حتى الفلس.
+
+     تصحيح 2026-09-26 (تدقيق شهر 8، بطلب صريح من المستخدم بعد الإبلاغ عن
+     3 مندوبين بعمولة خاطئة — جورج خوري/حياة فارما، حسين قواص/افاميا،
+     خضيل خضر/لاما فارما): كانت القاعدة سابقاً تستثني من الطرح أي سطر
+     مرتجع سببه "مرتجع وهمي" (FAKE_RETURN_REASON، مُزالة الآن) بافتراض
+     أنه "لا يُخصم من أحد". هذا الافتراض تبيّن خطأه بمقارنة رقمية دقيقة مع
+     ملف "نتيجة العمولات لشهر 8.xlsx" المرجعي: فرق الثلاثة مندوبين تطابق
+     تماماً وحصراً مجموع سطور "مرتجع وهمي" الخاصة بكل منهم (+17,520
+     لجورج خوري، +1,600 لحسين قواص، +12,100 لخضيل خضر) — أي أن هذه السطور
+     في الواقع تعكس فواتير بيع حقيقية أُلغيت لاحقاً بالكامل (نفس الكمية/
+     السعر تقريباً بفاتورة مرتجع لاحقة بترميز "م. مبيع")، وليست حركات
+     صورية بلا أثر مالي كما افتُرض سابقاً. بتأكيد صريح من المستخدم: تُخصم
+     الآن سطور "مرتجع وهمي" من صافي المبيعات تماماً كأي سبب مرتجع آخر، بلا
+     أي استثناء لأي سبب.
   2) [أُزيلت] كان هنا سابقاً خصم إضافي 0.5% منفصل ("خصم عمولة المرتجعات")
      فوق طرح المرتجعات من المبيعات أعلاه. المستخدم أكّد صراحة (2026-08-30،
      بعد جولة تحقيق سابقة وثّقت هذه الآلية) أن هذا الخصم غير مطلوب أصلاً
@@ -86,7 +99,6 @@ SANITIZER_BONUS_RATE = Decimal("0.07")
 DAWAK_RATE_KEY = "دواك ( سارة )"
 DAWAK_CUSTOMER_MARKER = "دواك"
 CALL_CENTER_MARKER = "كول سنتر"
-FAKE_RETURN_REASON = "مرتجع وهمي"
 WAREHOUSE_MARKER = "مستودع"
 
 # تصحيح إضافي (اكتُشف بمطابقة رقمية دقيقة مع شيتي "سارة" و"سارة - دواك"
@@ -390,9 +402,10 @@ def compute_rep_commissions(
 ) -> dict:
     """يرجع dict: rep -> {"companies": {company: {"sales":D,"rate":D,"commission":D}}, "total_sales":D, "total_commission":D}
 
-    ملاحظة مهمة (تصحيح تم التحقق منه رقمياً على شهر 7 كامل — انظر توثيق
-    أعلى الملف): إن مُرِّر return_rows، تُطرح فواتير المرتجع الحقيقية
-    (كل شيء ما عدا سبب "مرتجع وهمي") من إجمالي مبيعات نفس (المندوب،
+    ملاحظة مهمة (تصحيح تم التحقق منه رقمياً على شهر 7 كامل، ثم صُحِّح
+    مجدداً بتدقيق شهر 8 — انظر توثيق أعلى الملف): إن مُرِّر return_rows،
+    تُطرح فواتير المرتجع (كل الأسباب بلا استثناء، بما فيها "مرتجع وهمي" —
+    انظر تصحيح 2026-09-26 أعلى الملف) من إجمالي مبيعات نفس (المندوب،
     الشركة) *قبل* ضرب نسبة العمولة — فالعمولة تُحتسب على صافي المبيعات لا
     على إجمالي المبيعات الخام. هذا هو الخصم الوحيد المرتبط بالمرتجعات في
     كامل الحساب — لا يوجد أي خصم نسبة إضافي فوقه (أُزيل بناءً على طلب
@@ -412,8 +425,9 @@ def compute_rep_commissions(
             continue
         if is_warehouse(r.rep):
             continue
-        if r.return_reason.strip() == FAKE_RETURN_REASON:
-            continue  # مرتجع وهمي: لا يُخصم من أحد، لا من المبيعات ولا من العمولة
+        # تصحيح 2026-09-26: كان هنا سابقاً استثناء لسطور سببها "مرتجع
+        # وهمي" (لا تُخصم). أُزيل بعد إثبات خطأه بتدقيق شهر 8 (انظر توثيق
+        # أعلى الملف) — تُخصم الآن كل أسباب المرتجع بلا استثناء.
         dawak_flag = is_call_center(r.rep) and is_dawak_customer(r.customer)
         key = (r.rep, r.company, dawak_flag)
         agg[key] = agg.get(key, Decimal("0")) - r.total_price
@@ -466,6 +480,136 @@ def compute_company_breakdown(rep_commissions: dict) -> dict:
             entry["sales"] += c["sales"]
             entry["commission"] += c["commission"]
             entry["reps_count"] += 1
+    return out
+
+
+# ==========================================================================
+# ميزة "ملف الإضافات" (2026-09-27، بطلب المستخدم الصريح): "تتمة الفيشة"
+# الشهرية اليدوية لكل مندوب — راتب ثابت/مرتجعات/خصم تحصيل/خصم ذمم/مكافأة
+# فيتا/سلف — بيانات لا تُشتق إطلاقاً من ملفات الحركة/النسب (مصدرها مالي/
+# إداري بحت)، تُرفع كملف منفصل اختياري وتُدمَج فقط مع عمولتنا المحسوبة
+# فعلياً (compute_rep_commissions) لبناء "المستحق" و"الصافي".
+#
+# الصيغة أدناه تحقّقت رقمياً بتطابق تام (0 من 40 صفاً مختلفاً + صف
+# الإجمالي) على ملف مرجعي حقيقي زوّدنا به المستخدم ("عمولات نهائي.xlsx"،
+# شيت "نهائي" اليدوي الموسَّع بنفس هذه الأعمدة السبعة الإضافية): بالتحقق
+# اتضح أن عمود "اجمالي العمولات" في ذلك الملف = مجموع عمولات كل الشركات
+# (المطابق تماماً لـ rep_commissions[rep]["total_commission"] عندنا) +
+# الراتب الثابت — أي أن الراتب الثابت مُضاف بالفعل ضمن ذلك العمود، مما
+# يؤكد حرفياً وصف المستخدم بالعامية ("الراتب الثابت يضاف للعمولات"):
+#
+#     المستحق = عمولتنا المحسوبة (total_commission) + الراتب الثابت
+#               + مرتجعات + خصم التحصيل + خصم الذمم + مكافأة فيتا
+#     الصافي  = المستحق + سلف
+#
+# (أعمدة مرتجعات/خصم التحصيل/خصم الذمم/سلف قيمها سالبة أصلاً في ملف
+# الإضافات، فـ"الجمع" الحرفي هنا يكافئ حسابياً "الطرح" الذي وصفه المستخدم
+# بالعامية — لا تناقض.) هذا "مرتجعات"/"خصم التحصيل" منفصل تماماً عن خصم
+# المرتجعات الذي يُطرح أصلاً من صافي المبيعات قبل ضرب نسبة العمولة (انظر
+# compute_rep_commissions أعلاه) — رقم يدوي إضافي مختلف تماماً بمصدر مختلف
+# (لا علاقة له ببيانات الحركة اليومية).
+# ==========================================================================
+
+REQUIRED_ADDITIONS_COLS = {"اسم المندوب"}
+
+# تسميات صفوف التلخيص الملاحَظة داخل ملف الإضافات — تُتجاهل أينما وقعت في
+# الملف، لا عند أول ظهور فقط (لوحظ أن بعض الملفات تضع صفوف كول سنتر إضافية
+# بعد صف "Grand Total" فلا يجوز التوقف عند أول صف تلخيصي).
+ADDITIONS_SUMMARY_LABELS = {"grand total", "الإجمالي", "الاجمالي", "المجموع", "الإجمالي العام"}
+
+
+@dataclass
+class AdditionsEntry:
+    team: str = ""
+    fixed_salary: Decimal = field(default_factory=lambda: Decimal("0"))
+    returns_deduction: Decimal = field(default_factory=lambda: Decimal("0"))
+    collection_deduction: Decimal = field(default_factory=lambda: Decimal("0"))
+    receivables_deduction: Decimal = field(default_factory=lambda: Decimal("0"))
+    vita_bonus: Decimal = field(default_factory=lambda: Decimal("0"))
+    advance: Decimal = field(default_factory=lambda: Decimal("0"))
+
+
+def parse_additions(file_obj) -> dict[str, AdditionsEntry]:
+    """يقرأ ملف "الإضافات" الشهري الاختياري (اسم المندوب / الفريق / الراتب
+    الثابت / مرتجعات / خصم التحصيل / خصم الذمم / مكافأة فيتا / سلف).
+    كل الأعمدة عدا "اسم المندوب" اختيارية (تُقرأ كصفر/فارغ إن غابت) —
+    الملفات الشهرية الفعلية لا تحوي دائماً كل الأعمدة (مثال: "مكافأة فيتا"
+    و"سلف" فارغان لمعظم المندوبين). صفوف التلخيص (Grand Total/الإجمالي...)
+    تُتجاهل أينما وقعت (انظر ADDITIONS_SUMMARY_LABELS)."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(file_obj, data_only=True, read_only=True)
+    ws = wb[wb.sheetnames[0]]
+    rows = list(ws.iter_rows(values_only=True))
+    header_idx, cols = _find_header(rows, REQUIRED_ADDITIONS_COLS)
+
+    c_name = cols["اسم المندوب"]
+    c_team = cols.get("الفريق")
+    c_salary = cols.get("الراتب الثابت")
+    c_returns = cols.get("مرتجعات")
+    c_collection = cols.get("خصم التحصيل")
+    c_receivables = cols.get("خصم الذمم")
+    c_vita = cols.get("مكافأة فيتا")
+    c_advance = cols.get("سلف")
+
+    def _col(row, idx):
+        return _to_decimal(row[idx]) if idx is not None else Decimal("0")
+
+    out: dict[str, AdditionsEntry] = {}
+    for row in rows[header_idx + 1:]:
+        if not row or row[c_name] in (None, ""):
+            continue
+        raw_name = str(_clean(row[c_name])).strip()
+        if raw_name in ADDITIONS_SUMMARY_LABELS or raw_name.lower() in ADDITIONS_SUMMARY_LABELS:
+            continue
+        rep = strip_code(raw_name)
+        team = str(_clean(row[c_team])).strip() if c_team is not None and row[c_team] not in (None, "") else ""
+        out[rep] = AdditionsEntry(
+            team=team,
+            fixed_salary=_col(row, c_salary),
+            returns_deduction=_col(row, c_returns),
+            collection_deduction=_col(row, c_collection),
+            receivables_deduction=_col(row, c_receivables),
+            vita_bonus=_col(row, c_vita),
+            advance=_col(row, c_advance),
+        )
+    return out
+
+
+def merge_additions(rep_commissions: dict, additions: dict) -> dict:
+    """يدمج عمولتنا المحسوبة مع ملف الإضافات (انظر التوثيق أعلى هذا القسم
+    للصيغة). يرجع dict: rep -> {..., "due": D, "net": D,
+    "has_addition_row": bool, "has_sales": bool} — لكل مندوب ظهر في أي من
+    المصدرين (اتحاد، لا تقاطع)، بلا حذف صامت لأي طرف:
+      - مندوب له عمولة محسوبة لكن بلا صف بملف الإضافات: يُدرَج بإضافات
+        صفر (المستحق = عمولته المحسوبة فقط) — has_addition_row=False.
+      - مندوب له صف بملف الإضافات لكن بلا مبيعات هذا الشهر (مثال: إجازة،
+        أو خطأ إملائي بالاسم يمنع المطابقة): يُدرَج بعمولة صفر —
+        has_sales=False. راجع هذين العلمين لعرض شيتي مراجعة منفصلين بدل
+        إسقاط أي بيانات صامتاً."""
+    reps = set(rep_commissions) | set(additions)
+    out: dict[str, dict] = {}
+    for rep in reps:
+        comm = rep_commissions.get(rep)
+        add = additions.get(rep)
+        total_commission = comm["total_commission"] if comm else Decimal("0")
+        a = add or AdditionsEntry()
+        due = (total_commission + a.fixed_salary + a.returns_deduction
+               + a.collection_deduction + a.receivables_deduction + a.vita_bonus)
+        net = due + a.advance
+        out[rep] = {
+            "team": a.team,
+            "fixed_salary": a.fixed_salary,
+            "returns_deduction": a.returns_deduction,
+            "collection_deduction": a.collection_deduction,
+            "receivables_deduction": a.receivables_deduction,
+            "vita_bonus": a.vita_bonus,
+            "advance": a.advance,
+            "due": due,
+            "net": net,
+            "has_addition_row": add is not None,
+            "has_sales": comm is not None,
+        }
     return out
 
 

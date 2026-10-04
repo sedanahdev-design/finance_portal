@@ -11,7 +11,10 @@
 {% if run.mismatched_groups %}
 <div class="card-surface mb-4" style="border-right: 5px solid var(--danger);">
   <span class="status-pill status-error" style="font-size:1rem;"><i class="bi bi-exclamation-triangle-fill"></i> توجد فروقات تحتاج مراجعتك</span>
-  <p class="mt-3 mb-0 text-muted">{{ run.mismatched_groups }} من أصل {{ run.groups_count }} مجموعة أرقام بيان غير متطابقة، بإجمالي فرق {{ run.mismatched_amount|floatformat:2|intcomma }}.</p>
+  <p class="mt-3 mb-0 text-muted">
+    {{ run.solo_mismatched_groups }} مجموعة فردية غير متطابقة، و{{ run.shared_mismatched_groups }} مجموعة "مشتركة" بين أكثر من موزّع
+    (من أصل {{ run.groups_count }} مجموعة كشف)، بإجمالي فرق {{ run.mismatched_amount|floatformat:2|intcomma }}.
+  </p>
 </div>
 {% else %}
 <div class="card-surface mb-4" style="border-right: 5px solid var(--success);">
@@ -20,44 +23,94 @@
 {% endif %}
 
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_rows }}</div><div class="label">إجمالي الحركات</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.groups_count }}</div><div class="label">عدد مجموعات البيان</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_groups }}</div><div class="label">متطابقة</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.mismatched_groups }}</div><div class="label">غير متطابقة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.total_rows }}</div><div class="label">إجمالي الحركات</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.groups_count }}</div><div class="label">عدد مجموعات الكشف</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_groups }}</div><div class="label">متطابقة</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.solo_mismatched_groups }}</div><div class="label">ناقصة/زائدة (فردية)</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num" style="color:#b45309;">{{ run.shared_mismatched_groups }}</div><div class="label">مشتركة بين موزّعين</div></div></div>
+  <div class="col-6 col-lg-2"><div class="stat-tile"><div class="num">{{ run.persons_count }}</div><div class="label">عدد الموزّعين</div></div></div>
 </div>
 
-<h5 class="fw-bold mb-3">المجموعات غير المتطابقة</h5>
+<h5 class="fw-bold mb-3">تفصيل الفروقات حسب الشخص (بيد)</h5>
 <div class="table-wrap mb-4">
   <table class="table-clean">
-    <thead><tr><th>أرقام البيان</th><th>الحسابات الفرعية</th><th>إجمالي مدين</th><th>إجمالي دائن</th><th>الفرق</th></tr></thead>
+    <thead><tr><th>الشخص</th><th>إجمالي الناقص</th><th>إجمالي الزائد</th><th>الصافي</th><th>عدد الناقص</th><th>عدد الزائد</th><th>مشترك</th><th>بلا معرّف كشف</th></tr></thead>
     <tbody>
-      {% for g in preview.mismatched %}
+      {% for p in preview.persons %}
+      <tr>
+        <td class="fw-bold">{{ p.name }}</td>
+        <td style="color:var(--danger);">{{ p.deficit_total|floatformat:2|intcomma }}</td>
+        <td style="color:#1d4ed8;">{{ p.excess_total|floatformat:2|intcomma }}</td>
+        <td class="fw-bold">{{ p.net_total|floatformat:2|intcomma }}</td>
+        <td>{{ p.deficit_count }}</td>
+        <td>{{ p.excess_count }}</td>
+        <td>{% if p.shared_count %}<span class="status-pill" style="background:#FDE68A;color:#7c5c00;">{{ p.shared_count }}</span>{% else %}—{% endif %}</td>
+        <td>{{ p.unlinked_count }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted py-3">لا يوجد أشخاص.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h5 class="fw-bold mb-3">المجموعات الفردية غير المتطابقة (ناقص/زائد)</h5>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>معرّف الكشف</th><th>النوع</th><th>الشخص</th><th>الحسابات الفرعية</th><th>إجمالي مدين</th><th>إجمالي دائن</th><th>الفرق</th></tr></thead>
+    <tbody>
+      {% for g in preview.solo_mismatched %}
       <tr class="row-diff">
-        <td>{{ g.statement_numbers|join:", " }}</td><td>{{ g.subaccounts|join:", " }}</td>
+        <td>{{ g.identifier }}</td><td>{{ g.identifier_kind }}</td>
+        <td>{{ g.persons|join:"، " }}</td>
+        <td>{{ g.subaccounts|join:", " }}</td>
         <td>{{ g.total_debit|floatformat:2|intcomma }}</td><td>{{ g.total_credit|floatformat:2|intcomma }}</td>
         <td class="fw-bold">{{ g.difference|floatformat:2|intcomma }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="text-center text-muted py-3">لا توجد مجموعات غير متطابقة.</td></tr>
+      <tr><td colspan="7" class="text-center text-muted py-3">لا توجد مجموعات فردية غير متطابقة.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-<h5 class="fw-bold mb-3">حركات بلا رقم بيان واضح (تحتاج مراجعة يدوية)</h5>
-<div class="table-wrap">
+<h5 class="fw-bold mb-3">المجموعات "المشتركة" بين أكثر من موزّع <span class="text-muted" style="font-size:.85rem;">(غير محتسبة ضمن صافي أي موزّع بعينه)</span></h5>
+<div class="table-wrap mb-4">
   <table class="table-clean">
-    <thead><tr><th>التاريخ</th><th>رقم السند</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+    <thead><tr><th>معرّف الكشف</th><th>النوع</th><th>الأشخاص المعنيون</th><th>الحسابات الفرعية</th><th>إجمالي مدين</th><th>إجمالي دائن</th><th>الفرق</th></tr></thead>
     <tbody>
-      {% for r in preview.unlinked %}
-      <tr class="row-outperiod">
-        <td>{{ r.date }}</td><td>{{ r.voucher_no }}</td><td>{{ r.narration }}</td>
-        <td>{{ r.debit|floatformat:2|intcomma }}</td><td>{{ r.credit|floatformat:2|intcomma }}</td>
+      {% for g in preview.shared_mismatched %}
+      <tr style="background:#FFFBEB;">
+        <td>{{ g.identifier }}</td><td>{{ g.identifier_kind }}</td>
+        <td>{{ g.persons|join:"، " }}</td>
+        <td>{{ g.subaccounts|join:", " }}</td>
+        <td>{{ g.total_debit|floatformat:2|intcomma }}</td><td>{{ g.total_credit|floatformat:2|intcomma }}</td>
+        <td class="fw-bold">{{ g.difference|floatformat:2|intcomma }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="text-center text-muted py-3">لا توجد حركات بلا رقم بيان.</td></tr>
+      <tr><td colspan="7" class="text-center text-muted py-3">لا توجد مجموعات مشتركة غير متطابقة.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+<h5 class="fw-bold mb-3">حركات بلا معرّف كشف واضح (تحتاج مراجعة يدوية)</h5>
+<div class="table-wrap">
+  <table class="table-clean">
+    <thead><tr><th>الشخص</th><th>التاريخ</th><th>رقم السند</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+    <tbody>
+      {% for r in preview.unlinked %}
+      <tr class="row-outperiod">
+        <td>{{ r.person|default:"—" }}</td>
+        <td>{{ r.date }}</td><td>{{ r.voucher_no }}</td><td>{{ r.narration }}</td>
+        <td>{{ r.debit|floatformat:2|intcomma }}</td><td>{{ r.credit|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-3">لا توجد حركات بلا معرّف كشف.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-muted mt-3" style="font-size:.85rem;">للاطلاع على التفصيل الكامل (جميع الحركات، والمجموعات المتطابقة أيضاً) حمّل الملف الكامل أعلاه.</p>
 {% endblock %}

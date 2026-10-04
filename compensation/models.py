@@ -37,6 +37,11 @@ class CompensationRun(models.Model):
     merged_zero_qty_rows_count = models.IntegerField(default=0)
     # أسطر كمية=صفر بلا سطر آخر لنفس الزبون لدمج هداياها معه — بقيت وحدها
     unmerged_zero_qty_rows_count = models.IntegerField(default=0)
+    # تعديل 2026-10-04: سطر "م. مبيع"/مرتجع كبير الحجم (بلا فاتورة بيع
+    # واحدة تطابقه تماماً) أُلغي مقابل تجميع عدة فواتير بيع أصغر — راجع
+    # الشرح الكامل (حالة "100+80" الحقيقية) في compensation/engine.py
+    pool_matches_count = models.IntegerField(default=0)
+    pool_matched_rows_count = models.IntegerField(default=0)
 
     items_count = models.IntegerField(default=0)
     # عدد الحزم (مادة × عرض مفرق) — مستوى التجميع والنتيجة النهائي (بلا زبون)

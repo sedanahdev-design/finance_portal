@@ -19,3 +19,8 @@ class CommissionUploadForm(forms.Form):
         required=False,
         widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".xlsx,.xls"}),
     )
+    additions_file = forms.FileField(
+        label="ملف الإضافات (راتب ثابت/مرتجعات/خصم تحصيل/خصم ذمم/مكافأة فيتا/سلف)",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".xlsx,.xls"}),
+    )

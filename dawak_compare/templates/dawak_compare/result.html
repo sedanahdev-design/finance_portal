@@ -8,41 +8,96 @@
   <a href="{% url 'dawak_compare:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
 </div>
 
-{% if run.mismatched_count %}
+{% if run.cc_mismatched_count %}
 <div class="card-surface mb-4" style="border-right: 5px solid var(--danger);">
-  <span class="status-pill status-error" style="font-size:1rem;"><i class="bi bi-exclamation-triangle-fill"></i> توجد صيدليات غير متطابقة</span>
-  <p class="mt-3 mb-0 text-muted">{{ run.mismatched_count }} من أصل {{ run.pharmacies_count }} صيدلية فيها فرق بين الحسم والمرتجع الوهمي.</p>
+  <span class="status-pill status-error" style="font-size:1rem;"><i class="bi bi-exclamation-triangle-fill"></i> توجد حسابات غير مطابقة فعلياً مع هبة</span>
+  <p class="mt-3 mb-0 text-muted">{{ run.cc_mismatched_count }} من أصل {{ run.pharmacies_count }} حساب/صيدلية فرقها الفعلي مع هبة (حسب مركز الكلفة) غير صفري. {% if run.cc_no_hiba_data_count %}بالإضافة لـ{{ run.cc_no_hiba_data_count }} حساب لا توجد له أي حركة هبة مقابلة أصلاً (وليست فرقاً رقمياً).{% endif %}</p>
 </div>
 {% else %}
 <div class="card-surface mb-4" style="border-right: 5px solid var(--success);">
-  <span class="status-pill status-ok" style="font-size:1rem;"><i class="bi bi-check-circle-fill"></i> جميع الصيدليات متطابقة</span>
+  <span class="status-pill status-ok" style="font-size:1rem;"><i class="bi bi-check-circle-fill"></i> كل الحسابات التي لها نشاط عند هبة متطابقة فعلياً معها</span>
 </div>
 {% endif %}
 
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.pharmacies_count }}</div><div class="label">عدد الصيدليات</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_count }}</div><div class="label">متطابقة</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.mismatched_count }}</div><div class="label">غير متطابقة</div></div></div>
-  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.hiba_balance|floatformat:2|intcomma }}</div><div class="label">رصيد كشف حساب هبة</div></div></div>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.cc_matched_count }}</div><div class="label">مطابقة فعلياً مع هبة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.cc_mismatched_count }}</div><div class="label">غير مطابقة فعلياً</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.cc_no_hiba_data_count }}</div><div class="label">لا توجد حركات هبة مقابلة</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num" style="color:#B45309;">{{ run.cc_unresolved_hiba_rows }}</div><div class="label">حركات هبة بمركز كلفة غير مطابَق</div></div></div>
 </div>
 
-<div class="table-wrap">
+<h5 class="fw-bold mb-2">مطابقة حسب مركز الكلفة (المقارنة الرئيسية — فعلية مع هبة)</h5>
+<p class="text-muted mb-3" style="font-size:.85rem;">
+  يُسنَد عمود "مركز الكلفة" بملف هبة إلى الحساب الفرعي المطابق بملف دواك بمطابقة تقريبية للاسم (تتجاوز فروقات الشرطة/المسافة/"ال" التعريف، مثال: "مستودع الصناعة" يُطابَق "مستودع سدانة- صناعة")، ثم يُقارَن دائن دواك بمدين هبة ومدين دواك بدائن هبة لنفس الحساب. "لا توجد حركات مقابلة عند هبة" تعني عدم وجود أي حركة هبة أصلاً لهذا الحساب (وليست فرقاً رقمياً).
+</p>
+<div class="table-wrap mb-3">
   <table class="table-clean">
-    <thead><tr><th>رمز الصيدلية</th><th>اسم الصيدلية</th><th>إجمالي البون (مدين)</th><th>إجمالي المرتجع الوهمي (دائن)</th><th>الفرق</th><th>الحالة</th></tr></thead>
+    <thead><tr><th>الصيدلية/الحساب</th><th>الحالة</th><th>مدين دواك</th><th>دائن دواك</th><th>مدين هبة</th><th>دائن هبة</th><th>عدد حركات هبة</th></tr></thead>
     <tbody>
-      {% for p in preview %}
-      <tr class="{% if not p.matched %}row-diff{% else %}row-matched{% endif %}">
-        <td>{{ p.code }}</td><td>{{ p.name }}</td>
-        <td>{{ p.total_debit|floatformat:2|intcomma }}</td><td>{{ p.total_credit|floatformat:2|intcomma }}</td>
-        <td class="fw-bold">{{ p.difference|floatformat:2|intcomma }}</td>
-        <td>{% if p.matched %}<span class="status-pill status-ok">مطابق</span>{% else %}<span class="status-pill status-error">غير مطابق</span>{% endif %}</td>
+      {% for r in cc_preview %}
+      <tr>
+        <td>{{ r.name }}</td>
+        <td>
+          {% if r.status == "مطابق مع هبة" %}<span class="status-pill status-ok">{{ r.status }}</span>
+          {% elif r.status == "غير مطابق مع هبة" %}<span class="status-pill status-error">{{ r.status }}</span>
+          {% else %}<span class="status-pill">{{ r.status }}</span>{% endif %}
+        </td>
+        <td>{{ r.dawak_debit|floatformat:2|intcomma }}</td><td>{{ r.dawak_credit|floatformat:2|intcomma }}</td>
+        <td>{{ r.hiba_debit|floatformat:2|intcomma }}</td><td>{{ r.hiba_credit|floatformat:2|intcomma }}</td>
+        <td>{{ r.hiba_rows_count }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+      <tr><td colspan="7" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+{% if cc_unresolved_preview %}
+<div class="alert alert-warning" style="background:#FFF7E0;border-color:#FDE68A;">
+  توجد {{ run.cc_unresolved_hiba_rows }} حركة بملف هبة لها مركز كلفة لم نجد له أي صيدلية مطابقة بثقة بملف دواك — راجعها يدوياً (شيت "مركز كلفة غير مطابق" في ملف النتيجة).
+</div>
+<div class="table-wrap mb-4">
+  <table class="table-clean">
+    <thead><tr><th>مركز الكلفة (هبة)</th><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+    <tbody>
+      {% for e in cc_unresolved_preview %}
+      <tr class="row-outperiod">
+        <td>{{ e.cost_center }}</td><td>{{ e.raw_date }}</td><td>{{ e.narration }}</td>
+        <td>{{ e.debit|floatformat:2|intcomma }}</td><td>{{ e.credit|floatformat:2|intcomma }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<details class="card-surface mb-4">
+  <summary class="fw-bold" style="cursor:pointer;">مطابقة كل صيدلية داخلياً (بون = مرتجع وهمي) — فحص ثانوي، وليس مقارنة مع هبة</summary>
+  <p class="text-muted mt-3 mb-3" style="font-size:.85rem;">هذا الجدول يقارن حسم كل صيدلية بردّه <strong>داخل ملف دواك وحده</strong> — وليس مقارنة فعلية مع ملف هبة. اعتمد على جدول "مطابقة حسب مركز الكلفة" أعلاه للمقارنة الفعلية.</p>
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-lg-4"><div class="stat-tile"><div class="num">{{ run.pharmacies_count }}</div><div class="label">عدد الصيدليات</div></div></div>
+    <div class="col-6 col-lg-4"><div class="stat-tile"><div class="num" style="color:var(--success);">{{ run.matched_count }}</div><div class="label">متطابقة داخلياً</div></div></div>
+    <div class="col-6 col-lg-4"><div class="stat-tile"><div class="num" style="color:var(--danger);">{{ run.mismatched_count }}</div><div class="label">غير متطابقة داخلياً</div></div></div>
+  </div>
+  <div class="table-wrap">
+    <table class="table-clean">
+      <thead><tr><th>رمز الصيدلية</th><th>اسم الصيدلية</th><th>إجمالي البون (مدين)</th><th>إجمالي المرتجع الوهمي (دائن)</th><th>الفرق</th><th>الحالة</th></tr></thead>
+      <tbody>
+        {% for p in preview %}
+        <tr class="{% if not p.matched %}row-diff{% else %}row-matched{% endif %}">
+          <td>{{ p.code }}</td><td>{{ p.name }}</td>
+          <td>{{ p.total_debit|floatformat:2|intcomma }}</td><td>{{ p.total_credit|floatformat:2|intcomma }}</td>
+          <td class="fw-bold">{{ p.difference|floatformat:2|intcomma }}</td>
+          <td>{% if p.matched %}<span class="status-pill status-ok">مطابق</span>{% else %}<span class="status-pill status-error">غير مطابق</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-3">لا توجد بيانات.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
 
 <h5 class="fw-bold mb-3 mt-4">مطابقة الدفعات دواك⇄هبة (على مستوى الحركة الفردية)</h5>
 <div class="row g-3 mb-3">

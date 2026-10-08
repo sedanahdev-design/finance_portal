@@ -41,8 +41,9 @@ def run_view(request):
         return render(request, "distributor_commissions/index.html", {"form": form, "runs": runs})
 
     ledger_f = form.cleaned_data["ledger_file"]
+    redistribution_f = form.cleaned_data.get("redistribution_file")
     try:
-        parsed = parse_distributor_file(ledger_f)
+        parsed = parse_distributor_file(ledger_f, redistribution_file_obj=redistribution_f)
     except Exception as exc:  # noqa: BLE001
         messages.error(request, f"تعذّرت قراءة الملف: {exc}")
         log_action(request, AuditLog.Action.ERROR, str(exc), module_code="distributor_commissions")
@@ -75,9 +76,13 @@ def run_view(request):
         warehouse_excluded_count=parsed.warehouse_excluded_count,
         fuzzy_biyad_rows_count=len(parsed.fuzzy_biyad_rows),
         unresolved_rows_count=unresolved_rows_count,
+        redistribution_file_used=bool(redistribution_f),
+        redistribution_file_name=redistribution_f.name if redistribution_f else "",
     )
     buf = build_workbook(
-        parsed, result, summary, {"ledger_file_name": ledger_f.name},
+        parsed, result, summary,
+        {"ledger_file_name": ledger_f.name,
+         "redistribution_file_name": redistribution_f.name if redistribution_f else ""},
         situation_breakdown=situation_breakdown,
         return_situation_breakdown=return_situation_breakdown,
         role_breakdown=role_breakdown,

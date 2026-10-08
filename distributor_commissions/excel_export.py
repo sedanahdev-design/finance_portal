@@ -45,6 +45,8 @@ def build_workbook(parsed, result, summary, meta, situation_breakdown=None, retu
     ws0.append(["ملخص عمولة تحصيل الموزعين الداخليين — نقدية + مرتجعات"])
     ws0.append([])
     ws0.append(["ملف الحركة", meta.get("ledger_file_name", "")])
+    if meta.get("redistribution_file_name"):
+        ws0.append(["ملف إعادة توزيع مستقل (ميزة اختيارية)", meta.get("redistribution_file_name", "")])
     ws0.append(["عدد حركات التحصيل النقدي المحتسبة", summary["rows_count"]])
     ws0.append(["عدد حركات المرتجع المحتسبة", summary["return_rows_count"]])
     ws0.append(["عدد الموزعين", summary["distributors_count"]])
@@ -108,11 +110,16 @@ def build_workbook(parsed, result, summary, meta, situation_breakdown=None, retu
 
     ws3 = wb.create_sheet("تفصيل المرتجعات")
     ws3.sheet_view.rightToLeft = True
-    _header(ws3, ["البيان", "المبلغ", "عدد المشاركين", "المشاركون"])
+    # تصحيح 2026-10-08: عمود "المصدر" (جديد) يوضّح من أي شيت/ملف أتت كل حركة
+    # خصم — "مرتجعات" (شيت المرتجعات الأصلي)، "اعادة توزيع (ضمن ملف دفتر
+    # الأستاذ)" (شيت مدمج بنفس الملف)، أو "ملف إعادة توزيع مستقل" (الميزة
+    # الاختيارية الجديدة) — للشفافية، خصوصاً مع تنبيه الازدواج الموثّق
+    # بتوثيق parse_distributor_file.
+    _header(ws3, ["البيان", "المصدر", "المبلغ", "عدد المشاركين", "المشاركون"])
     for row in parsed.return_rows:
         parts_str = "، ".join(p.name for p in row.participants)
-        ws3.append([row.bayan, float(row.amount), len(row.participants), parts_str])
-    for i, w in enumerate([40, 16, 14, 60], start=1):
+        ws3.append([row.bayan, row.source, float(row.amount), len(row.participants), parts_str])
+    for i, w in enumerate([40, 30, 16, 14, 60], start=1):
         ws3.column_dimensions[get_column_letter(i)].width = w
 
     # ------------------------------------------------------------------

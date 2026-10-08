@@ -37,6 +37,12 @@ class DistributorCommissionRun(models.Model):
     fuzzy_biyad_rows_count = models.IntegerField(default=0)
     unresolved_rows_count = models.IntegerField(default=0)
 
+    # ميزة اختيارية جديدة 2026-10-08 (طلب المستخدم الصريح) — هل أُرفق ملف
+    # إعادة توزيع الفواتير المستقل (راجع redistribution_file بـ forms.py
+    # وتوثيق parse_distributor_file بـ engine.py) بهذه العملية.
+    redistribution_file_used = models.BooleanField(default=False)
+    redistribution_file_name = models.CharField(max_length=255, blank=True)
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

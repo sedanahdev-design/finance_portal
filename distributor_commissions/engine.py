@@ -614,9 +614,62 @@ def _resolve_tier_and_source(name: str, role_col: Optional[str]) -> tuple[str, s
     return ("car" if role_col in CAR_TIER_COLS else "moto"), "عمود الموزع (DIST_COLS) — المصدر المؤكد"
 
 
-def parse_distributor_file(file_obj) -> ParseResult:
+def _build_return_source(ws, label: str = "مرتجعات") -> dict:
+    """يبني "مصدر شبيه بالمرتجعات" من أي شيت واحد يحقّق REQUIRED_RETURN_COLS
+    (الفاتورة/القيمة المؤجلة/موزع السائق) — يُستخدم لشيت المرتجعات، شيت
+    "اعادة توزيع" إن وُجد ضمن نفس الملف، وملف "إجمالي الفواتير"/إعادة
+    التوزيع المستقل الاختياري (راجع توثيق 2026-10-08 الثاني أدناه). كل
+    مصدر يُعالَج بأعمدته الخاصة لأن مواضعها تختلف بين شيت وآخر.
+
+    تصحيح 2026-10-08 (الثالث): أضفنا "label" لتمييز مصدر كل حركة مرتجع في
+    الملف المُصدَّر (شيت "تفصيل المرتجعات") — كانت كل الحركات تظهر بمصدر
+    واحد ثابت "مرتجعات" بصرف النظر عن أصلها الفعلي (شيت مرتجعات/شيت اعادة
+    توزيع مدمج/ملف إعادة توزيع مستقل)، فلا يمكن للمستخدم تمييزها لاحقاً."""
+    rrows_all = list(ws.iter_rows(values_only=True))
+    rh_idx, rcols_i = _find_header(rrows_all, REQUIRED_RETURN_COLS)
+    c_ramount_i = rcols_i["القيمة المؤجلة"]
+    r_header_row_i = rrows_all[rh_idx]
+    # تصحيح 2026-10-08: كل شيت من هذه قد يكرّر أعمدة DIST_COLS — دمج كل
+    # الكتل المتاحة بدل الاعتماد على كتلة واحدة فقط، للاتساق وللحماية من
+    # أي اختلاف فردي بين الكتلتين (تماماً كحالتي "اسامة مسوتي"/"مصطفى
+    # زيتون" بدفتر الأستاذ).
+    r_dist_cols_i = {c: _all_header_positions(r_header_row_i, c) for c in DIST_COLS if c in rcols_i}
+    # عمود "ملاحظات" هو مصدر عبارة "لا تخصم على أحد" فعلياً في شيت المرتجعات
+    # (367 حركة موثّقة في الملف المرجعي) — لم يكن الكود القديم يقرأه إطلاقاً.
+    c_rnote_i = rcols_i.get("ملاحظات")
+    rows_i = []
+    for row in rrows_all[rh_idx + 1:]:
+        if not row:
+            continue
+        amt = _to_decimal(row[c_ramount_i])
+        if amt == 0:
+            continue
+        rows_i.append(row)
+    return {
+        "rows": rows_i, "rcols": rcols_i, "dist_cols": r_dist_cols_i,
+        "c_amount": c_ramount_i, "c_note": c_rnote_i, "label": label,
+    }
+
+
+def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResult:
     """يقرأ شيتي 'دفتر الأستاذ' و'مرتجعات' من نفس الملف المرفوع، ويحسب
-    قائمة مشاركين موثوقة لكل حركة (مع تفعيل آلية 'بيد السيد' عند اللزوم)."""
+    قائمة مشاركين موثوقة لكل حركة (مع تفعيل آلية 'بيد السيد' عند اللزوم).
+
+    تصحيح 2026-10-08 (الثاني، طلب المستخدم الصريح: "بدي منك تضيفو ك ميزة
+    اختيارية ضمن خدمة عمولة موزعين داخليين وتتعامل مع هالملف معاملة
+    المرتجعات للموزعين"): redistribution_file_obj معامل اختياري منفصل —
+    ملف "إجمالي الفواتير"/إعادة التوزيع حين يصل كملف مستقل بذاته (لا كشيت
+    ضمن ملف دفتر الأستاذ، كحالة "redistribution_sheet" أعلاه). دراسة الملف
+    المرفوع فعلياً (شيت "حركة إجمالي الفواتير") أظهرت بنية مطابقة تماماً
+    لشيت "اعادة توزيع" المكتشف سابقاً هذا الشهر بالضبط (نفس الفواتير، نفس
+    القيم، نفس حركة بسام قصاص 4976→-24.88) لكن بكتلة واحدة غير مكرّرة. لذلك
+    يُعالَج بنفس آلية _build_return_source تماماً (خصم 0.5% بنفس قاعدة
+    المرتجعات، بما فيها تنصيف دراجة+دراجة في _return_rate) ويُدمَج ضمن
+    return_sources — دون أي حاجة لمنطق احتساب جديد. تنبيه مهم للمستخدم: إن
+    كان ملف دفتر الأستاذ المرفوع يتضمّن أصلاً شيت "اعادة توزيع" لنفس الشهر،
+    فلا يجب رفع هذا الملف المستقل إضافة له لنفس البيانات (ازدواج في الخصم) —
+    هذا المعامل الاختياري مخصّص للحالة التي يصل فيها تقرير إعادة التوزيع
+    كملف منفصل بدلاً من كونه شيتاً داخل ملف دفتر الأستاذ."""
     import openpyxl
 
     wb = openpyxl.load_workbook(file_obj, data_only=True, read_only=True)
@@ -666,34 +719,32 @@ def parse_distributor_file(file_obj) -> ParseResult:
     # بعد العنوان، مُصفّاة بمبلغ≠0)، rcols (فهرس الأعمدة)، dist_cols (مواضع
     # DIST_COLS المدمجة)، c_amount، c_note.
     return_sources = []
-    for sheet_name in (returns_sheet, redistribution_sheet):
+    for sheet_name, lbl in ((returns_sheet, "مرتجعات"), (redistribution_sheet, "اعادة توزيع (ضمن ملف دفتر الأستاذ)")):
         if not sheet_name:
             continue
-        ws2 = wb[sheet_name]
-        rrows_all = list(ws2.iter_rows(values_only=True))
-        rh_idx, rcols_i = _find_header(rrows_all, REQUIRED_RETURN_COLS)
-        c_ramount_i = rcols_i["القيمة المؤجلة"]
-        r_header_row_i = rrows_all[rh_idx]
-        # نفس تصحيح 2026-10-08 أعلاه (دفتر الأستاذ): كل شيت من هذين قد يكرّر
-        # أعمدة DIST_COLS — دمج كل الكتل المتاحة بدل الاعتماد على كتلة واحدة
-        # فقط، للاتساق وللحماية من أي اختلاف فردي بين الكتلتين (تماماً
-        # كحالتي "اسامة مسوتي"/"مصطفى زيتون" بدفتر الأستاذ).
-        r_dist_cols_i = {c: _all_header_positions(r_header_row_i, c) for c in DIST_COLS if c in rcols_i}
-        # عمود "ملاحظات" هو مصدر عبارة "لا تخصم على أحد" فعلياً في شيت المرتجعات
-        # (367 حركة موثّقة في الملف المرجعي) — لم يكن الكود القديم يقرأه إطلاقاً.
-        c_rnote_i = rcols_i.get("ملاحظات")
-        rows_i = []
-        for row in rrows_all[rh_idx + 1:]:
-            if not row:
+        return_sources.append(_build_return_source(wb[sheet_name], label=lbl))
+
+    # ملف "إجمالي الفواتير"/إعادة التوزيع المستقل الاختياري (راجع توثيق
+    # 2026-10-08 الثاني أعلى الدالة) — يُفتح كملف Excel منفصل بذاته، ويُحدَّد
+    # شيته عبر محتوى الأعمدة (REQUIRED_RETURN_COLS) لا عبر اسم الشيت، لأن
+    # الاسم قد يختلف ("حركة إجمالي الفواتير" مثلاً، لا "اعادة توزيع").
+    if redistribution_file_obj is not None:
+        wb_redist = openpyxl.load_workbook(redistribution_file_obj, data_only=True, read_only=True)
+        redist_ws = None
+        for name in wb_redist.sheetnames:
+            candidate_rows = list(wb_redist[name].iter_rows(values_only=True))
+            try:
+                _find_header(candidate_rows, REQUIRED_RETURN_COLS)
+            except ValueError:
                 continue
-            amt = _to_decimal(row[c_ramount_i])
-            if amt == 0:
-                continue
-            rows_i.append(row)
-        return_sources.append({
-            "rows": rows_i, "rcols": rcols_i, "dist_cols": r_dist_cols_i,
-            "c_amount": c_ramount_i, "c_note": c_rnote_i,
-        })
+            redist_ws = wb_redist[name]
+            break
+        if redist_ws is None:
+            raise ValueError(
+                "تعذّر العثور على شيت يحتوي الأعمدة المطلوبة (الفاتورة/القيمة "
+                "المؤجلة/موزع السائق) داخل ملف إعادة التوزيع المرفوع."
+            )
+        return_sources.append(_build_return_source(redist_ws, label="ملف إعادة توزيع مستقل"))
 
     # -------- بناء قائمة الأسماء المرجعية من كل الأعمدة الخام (كل الشيتات) --------
     resolver = NameResolver()
@@ -906,6 +957,7 @@ def parse_distributor_file(file_obj) -> ParseResult:
         r_dist_cols = source["dist_cols"]
         c_ramount = source["c_amount"]
         c_rnote = source["c_note"]
+        src_label = source.get("label", "مرتجعات")
         for row in source["rows"]:
             amt = _to_decimal(row[c_ramount])
             bayan_val = row[rcols["الفاتورة"]] if "الفاتورة" in rcols else ""
@@ -959,7 +1011,8 @@ def parse_distributor_file(file_obj) -> ParseResult:
                     "bayan": bayan, "debit": amt, "name": "، ".join(p.name for p in parts),
                 })
 
-            return_rows.append(ReturnRow(bayan=bayan, amount=amt, participants=parts, no_deduct=no_deduct, note=note))
+            return_rows.append(ReturnRow(bayan=bayan, amount=amt, participants=parts, source=src_label,
+                                          no_deduct=no_deduct, note=note))
 
     return ParseResult(
         collection_rows=collection_rows,

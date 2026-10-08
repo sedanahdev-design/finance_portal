@@ -11,12 +11,15 @@ WARN_FILL = PatternFill("solid", fgColor="FEF3C7")
 # ألوان/أنماط شيت "نهائي" (جدول عريض حسب المورد) — تصحيح 2026-08-31: أضيف
 # بطلب المستخدم الصريح ليقابل شيت "نهائي" الموجود بملفه المرجعي الشهري
 # (صف لكل مندوب، وعمود مبيعات/نسبة/عمولة متكرر لكل مورد/شركة). النطاق هنا
-# مقصور على ما تحسبه وحدة العمولات فعلياً (مبيعات/نسبة/عمولة لكل مندوب×
-# شركة، بالإضافة لإجمالي المبيعات والعمولات) — بلا أي من الأعمدة اليدوية
-# الأربعة الموجودة بملف المستخدم (الراتب الثابت/سلف/مسحوبات شخصية/خصم
-# الذمم/خصم التحصيل/المستحق/الصافي)، لأن هذه القيم لا تُدخَل حالياً بأي
-# ملف يُرفع للتطبيق — بتأكيد صريح من المستخدم أن النطاق المطلوب حالياً هو
-# القسم المحسوب فقط.
+# مقصور (في ذلك الوقت) على ما تحسبه وحدة العمولات فعلياً من ملفات
+# المبيعات/المرتجعات/النسب وحدها — بلا أي من الأعمدة اليدوية (الراتب
+# الثابت/سلف/مسحوبات شخصية/خصم الذمم/خصم التحصيل/المستحق/الصافي)، لأنها
+# لم تكن تُدخَل بأي ملف يُرفع للتطبيق حينها.
+#
+# ملاحظة: تجاوزه لاحقاً ميزة "ملف الإضافات" (2026-09-27، ثم تصحيح
+# "مسحوبات" 2026-10-08 — انظر ADDITIONS_TAIL_LABELS أدناه وتوثيق
+# commissions/engine.py) — كل الأعمدة اليدوية المذكورة أعلاه مدعومة
+# الآن فعلياً عند رفع ملف إضافات اختياري.
 COMPANY_BLOCK_FILL = PatternFill("solid", fgColor="374151")
 TOTAL_BLOCK_FILL = PatternFill("solid", fgColor="1F2937")
 GRAND_TOTAL_FILL = PatternFill("solid", fgColor="D1D5DB")
@@ -46,9 +49,11 @@ def _header(ws, headers):
 # الراتب الثابت قبل كتل الشركات، وبقية الأعمدة بعد إجمالي المبيعات/العمولة)
 # — هذا هو ترتيب "الفيشة" الذي اعتمده المستخدم أصلاً، فلا داعي لإعادة
 # ترتيبه، فقط تمديده بنفس الأسلوب.
-ADDITIONS_TAIL_LABELS = ["مرتجعات", "خصم التحصيل", "خصم الذمم", "مكافأة فيتا", "المستحق", "سلف", "الصافي"]
+# تصحيح 2026-10-08: أُضيف "مسحوبات" (منفصل عن "سلف") — راجع الخطأ رقم 7
+# في توثيق engine.py (كان موجوداً بملف المستخدم ولم يُقرأ/يُصدَّر إطلاقاً).
+ADDITIONS_TAIL_LABELS = ["مرتجعات", "خصم التحصيل", "خصم الذمم", "مكافأة فيتا", "المستحق", "سلف", "مسحوبات", "الصافي"]
 ADDITIONS_TAIL_KEYS = ["returns_deduction", "collection_deduction", "receivables_deduction",
-                       "vita_bonus", "due", "advance", "net"]
+                       "vita_bonus", "due", "advance", "withdrawals", "net"]
 
 
 def _write_wide_final_sheet(wb, rep_commissions, merged=None):
@@ -182,7 +187,8 @@ def _write_wide_final_sheet(wb, rep_commissions, merged=None):
         elif has_additions:
             # مندوب بلا صف إضافات: المستحق/الصافي = عمولته المحسوبة فقط
             fallback = {"returns_deduction": 0.0, "collection_deduction": 0.0, "receivables_deduction": 0.0,
-                        "vita_bonus": 0.0, "due": total_commission_v, "advance": 0.0, "net": total_commission_v}
+                        "vita_bonus": 0.0, "due": total_commission_v, "advance": 0.0, "withdrawals": 0.0,
+                        "net": total_commission_v}
             for key in ADDITIONS_TAIL_KEYS:
                 v = fallback[key]
                 ws.cell(row=row_idx, column=tail_cols[key], value=v).number_format = MONEY_FORMAT

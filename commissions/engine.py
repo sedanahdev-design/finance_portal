@@ -82,10 +82,71 @@
 تظهر في أي عمود شركة تفصيلي داخل شيت "نهائي"). بحسب فلسفة المشروع (عدم
 إخفاء أي بيانات أو تخمينها بصمت)، الشيفرة هنا **لا** تحاول تقليد هذه
 المبالغ التقديرية (لا يوجد أساس بيانات موثوق لاشتقاقها) — يجب أن تبقى
-تُضاف يدوياً بعد التصدير مع مراجعة بشرية. يبقى أيضاً فارقان غير مُفسَّرين
-تماماً بعد لكول سنتر سارة غوراني ورحاب قاسم تحديداً (احتُمل أن عمولتهما
-الإجمالية في "نهائي" مصدرها معادلة مختلفة عن الشيتات التفصيلية المرفقة
-باسمهما) — يُنصح بمراجعة يدوية لهاتين الحالتين تحديداً قبل اعتماد الناتج.
+تُضاف يدوياً بعد التصدير مع مراجعة بشرية.
+
+تصحيحات 2026-10-08 (تدقيق "Book1 تشييك"، بطلب المستخدم: "في اكتر من
+مندوب في عليهن غلط بسبب عمولة تارغت المعقمات" + "رحاب عنا فرق بنسبة
+عمولة اليوسف" + "سارة عنا مشكلة... مشان صيدلية دواك صار اسما مستودع
+سدانة") — ثلاثة أخطاء مستقلة، كل منها تحقّقت رقمياً بمقارنة مباشرة مع
+ملف تدقيق يدوي حقيقي (Book1) زوّدنا به المستخدم:
+
+  4) تارغت المعقمات كان **لا يُطبَّق على أي مندوب إطلاقاً** هذا الشهر:
+     parse_sanitizer_targets كانت تتطلب عمود "المحقق" (إنجاز مُدخَل
+     يدوياً) بجانب "تارغت المعقمات"، وملف التارغت الفعلي لهذا الشهر لا
+     يحوي عمود "المحقق" أصلاً (فقط اسم المندوب + تارغت المعقمات) — فكانت
+     _find_header تفشل بصمت وتُرجع {} (فراغ)، فيسقط شرط "rep in
+     sanitizer_targets" دوماً ولا يُطبَّق أي بونص 7% على أي مندوب، أياً
+     كانت مبيعاته الفعلية. تحقّق فعلي: 4 مندوبين (حسني البوشي، راتب الدج،
+     عبد الحكيم زعل، عبد الرحيم عرقسوسي) تجاوزوا تارغتهم فعلياً (بمقارنة
+     صافي مبيعات معقمات المحتسب أصلاً داخل compute_rep_commissions مع
+     عمود "تارغت المعقمات") ولم يُعطوا البونص — الفارق المحسوب (891.90 /
+     3554.96 / 2910.74 / 2808.46) يطابق تماماً فرق "Book1" للمندوبين
+     الأربعة. **الحل:** "المحقق" أصبح غير مطلوب إطلاقاً — الإنجاز الآن
+     يُحسَب من نفس صافي مبيعات (مندوب×معقمات) المُجمَّع أصلاً داخل
+     compute_rep_commissions (لا حاجة لعمود خارجي يُدخَل يدوياً، ولا خطر
+     نسيانه كل شهر). parse_sanitizer_targets تقرأ الآن فقط "اسم المندوب"
+     و"تارغت المعقمات" (عمود "المحقق" إن وُجد يُتجاهَل بالكامل).
+
+  5) نسبة "اليوسف" للكول سنتر: CALL_CENTER_RATE_OVERRIDES كانت تفرض 0.5%
+     ثابتة على 4 شركات (الفارس/المتوسط/اليوسف/حياة فارما) بسبب خطأ قديم
+     في ملف نسب العمولات (كان مكتوباً خطأً 5% لهذه الأربعة). بالتحقق من
+     ملف نسب العمولات الحالي: 3 من الأربعة (الفارس/المتوسط/حياة فارما)
+     قيمتهم الخام فيه أصلاً 0.5% (التصحيح عندهم بلا أي أثر فعلي، تصحيح
+     "صفري")! الرابعة فقط (اليوسف) قيمتها الخام الحالية 1% (0.01) — أي
+     أن ملف نسب العمولات صُحِّح لاحقاً من مصدره (رفع القيمة الصحيحة
+     لليوسف)، لكن override هذا الكود بقي يفرض 0.5% القديمة الخاطئة فوقها
+     فيُسقِطها خطأً! تحقّق فعلي مباشر على "كول سنتر رحاب قاسم": تطبيق 1%
+     (الخام) بدل 0.5% (override) يرفع عمولة اليوسف من 333.36 إلى 666.72
+     (+333.36) — يطابق تماماً فرق "Book1" المُسجَّل لبند اليوسف تحديداً
+     (M7=333.36 في شيت "رحاب"). **الحل:** أُزيلت "اليوسف" من
+     CALL_CENTER_RATE_OVERRIDES (الثلاثة الباقية تُركت كما هي، فلا تأثير
+     عليها أصلاً كما تبيّن).
+
+  6) نسبة دواك (0.5% الخاصة بصيدلية دواك عبر كول سنتر سارة): اسم الزبون
+     "دواك"/"صيدلية دواك" في ملف الحركة اليومية أصبح هذا الشهر "مستودع
+     سدانة- صناعة" (إعادة تسمية إدارية — المستودع الداخلي بات يُسجَّل
+     كزبون بدل الاسم القديم)، فـ is_dawak_customer (تبحث عن الكلمة
+     "دواك" حرفياً) لم تعد تطابق أي سطر، وكل مبيعات هذا "الزبون" (92 سطراً
+     لكول سنتر سارة غوراني، بإجمالي صافٍ 241,643 بعد المرتجعات) احتُسبت
+     بنسبة الشركة العادية (كول سنتر) بدل 0.5% الثابتة — تضخيم العمولة
+     خطأً. تحقّق فعلي: مجموع هذه الأسطر وتوزيعها على الشركات يطابق تماماً
+     شيت التحقق اليدوي المرفق (241,643 إجمالي، بونص دواك الصحيح
+     1,208.215 = 241,643×0.5%). **الحل:** is_dawak_customer تطابق الآن
+     "دواك" أو "سدانة" (أي منهما) في اسم الزبون.
+
+  7) عمود "مسحوبات" (تمييزاً عن "سلف") في ملف الإضافات لم يكن يُقرَأ
+     إطلاقاً منذ إضافة ميزة ملف الإضافات (2026-09-27) — كان موجوداً
+     بالملف لكن AdditionsEntry/merge_additions تقرآن "سلف" فقط. أثّر هذا
+     على "كول سنتر رحاب قاسم" تحديداً (مسحوبات=-171.6، سلف فارغ لديها) —
+     صافيها كان ينقصه خصم -171.6. **الحل:** حقل withdrawals جديد يُقرأ
+     من عمود "مسحوبات" (إن وُجد) ويُطرَح في الصافي تماماً كالسلف (كلاهما
+     قيمته سالبة أصلاً بالملف).
+
+  بعد الإصلاحات الثلاثة معاً، تطابقت أرقام "كول سنتر سارة غوراني" و"كول
+  سنتر رحاب قاسم" مع شيت التحقق اليدوي حتى الفلس (الفارقان غير
+  المُفسَّران المذكوران في الفقرة السابقة — لشهر 7 القديم — كانا بالضبط
+  نفس هذه الأخطاء الثلاثة، لم يُكتشف سببها الجذري إلا الآن بتوفر ملف
+  تدقيق يدوي مفصَّل كافٍ للتتبّع).
 """
 from __future__ import annotations
 
@@ -97,7 +158,11 @@ from typing import Optional
 SANITIZER_COMPANY = "معقمات (الحياة الطبية)"
 SANITIZER_BONUS_RATE = Decimal("0.07")
 DAWAK_RATE_KEY = "دواك ( سارة )"
-DAWAK_CUSTOMER_MARKER = "دواك"
+# تصحيح 2026-10-08: "دواك"/"صيدلية دواك" أصبح اسمه بملف الحركة "مستودع
+# سدانة" (إعادة تسمية إدارية) — راجع توثيق الخطأ رقم 6 أعلى الملف.
+# أي من الكلمتين يكفي للمطابقة (زبون قديم محتمل بالاسم القديم، وزبون
+# جديد بالاسم الجديد، كلاهما يُعامَل بنسبة دواك 0.5%).
+DAWAK_CUSTOMER_MARKERS = ("دواك", "سدانة")
 CALL_CENTER_MARKER = "كول سنتر"
 WAREHOUSE_MARKER = "مستودع"
 
@@ -112,10 +177,14 @@ WAREHOUSE_MARKER = "مستودع"
 # تطابق تام حتى القرش على الشركات الأربع معاً في الحالتين. هذا الاستثناء
 # يُطبَّق فقط على نسبة الكول سنتر (لا يمس نسبة المندوبين العاديين لنفس
 # الشركات، التي لم يظهر فيها أي خطأ مماثل).
+# تصحيح 2026-10-08 (الخطأ رقم 5 أعلى الملف): أُزيلت "اليوسف" من هذا
+# الاستثناء — ملف نسب العمولات صُحِّح من مصدره (قيمته الخام الحالية لها
+# 1%، لا 5% كما كان قديماً)، وبقاء override هنا عند 0.5% كان يُسقِط
+# التصحيح خطأً. الثلاثة الباقية (الفارس/المتوسط/حياة فارما) قيمتها الخام
+# الحالية 0.5% فعلاً، فتُركت كما هي (تصحيح بلا أي أثر فعلي عليها).
 CALL_CENTER_RATE_OVERRIDES = {
     "الفارس": Decimal("0.005"),
     "المتوسط": Decimal("0.005"),
-    "اليوسف": Decimal("0.005"),
     "حياة فارما": Decimal("0.005"),
 }
 
@@ -241,7 +310,8 @@ def is_call_center(rep_name: str) -> bool:
 
 
 def is_dawak_customer(customer_name: str) -> bool:
-    return DAWAK_CUSTOMER_MARKER in str(customer_name)
+    text = str(customer_name)
+    return any(marker in text for marker in DAWAK_CUSTOMER_MARKERS)
 
 
 def is_warehouse(rep_name: str) -> bool:
@@ -296,7 +366,15 @@ def parse_rates(file_obj) -> dict:
 
 
 def parse_sanitizer_targets(file_obj) -> dict:
-    """قراءة ملف/شيت التارغت (اسم المندوب / تارغت المعقمات / المحقق)."""
+    """قراءة ملف/شيت التارغت (اسم المندوب / تارغت المعقمات).
+
+    تصحيح 2026-10-08 (الخطأ رقم 4 أعلى الملف): لم يعد عمود "المحقق"
+    مطلوباً — كان الكود القديم يتطلبه ضمن required، فإن غاب (كحال ملف
+    هذا الشهر الذي يحوي فقط "اسم المندوب"/"تارغت المعقمات") تفشل
+    _find_header بصمت وتُرجَع {} فيسقط البونص عن الجميع. الإنجاز الفعلي
+    يُحسَب الآن مباشرة من صافي مبيعات معقمات المُجمَّع داخل
+    compute_rep_commissions (راجع الدالة)، فلا حاجة لعمود خارجي. عمود
+    "المحقق" إن وُجد في الملف يُتجاهَل كلياً (لم يعد يُقرأ)."""
     import openpyxl
 
     wb = openpyxl.load_workbook(file_obj, data_only=True, read_only=True)
@@ -307,7 +385,7 @@ def parse_sanitizer_targets(file_obj) -> dict:
             break
     ws = wb[sheet or wb.sheetnames[0]]
     rows = list(ws.iter_rows(values_only=True))
-    required = {"اسم المندوب", "تارغت المعقمات", "المحقق"}
+    required = {"اسم المندوب", "تارغت المعقمات"}
     try:
         header_idx, cols = _find_header(rows, required)
     except ValueError:
@@ -318,8 +396,7 @@ def parse_sanitizer_targets(file_obj) -> dict:
             continue
         rep = strip_code(row[cols["اسم المندوب"]])
         target = _to_decimal(row[cols["تارغت المعقمات"]])
-        achieved = _to_decimal(row[cols["المحقق"]])
-        out[rep] = (target, achieved)
+        out[rep] = target
     return out
 
 
@@ -409,7 +486,12 @@ def compute_rep_commissions(
     الشركة) *قبل* ضرب نسبة العمولة — فالعمولة تُحتسب على صافي المبيعات لا
     على إجمالي المبيعات الخام. هذا هو الخصم الوحيد المرتبط بالمرتجعات في
     كامل الحساب — لا يوجد أي خصم نسبة إضافي فوقه (أُزيل بناءً على طلب
-    صريح من المستخدم، انظر توثيق أعلى الملف)."""
+    صريح من المستخدم، انظر توثيق أعلى الملف).
+
+    sanitizer_targets الآن dict بسيط: rep -> target (Decimal)، بلا قيمة
+    "محقق" مُدخَلة يدوياً (تصحيح 2026-10-08، الخطأ رقم 4 أعلى الملف) —
+    الإنجاز الفعلي هو amount نفسه (صافي مبيعات معقمات المُجمَّع لهذا
+    المندوب بالذات أدناه)، فالمقارنة تتم مباشرة بلا أي مصدر خارجي إضافي."""
     agg: dict[tuple, Decimal] = {}
     for r in sales_rows:
         if r.company is None:
@@ -440,7 +522,8 @@ def compute_rep_commissions(
             rate_entry = rates.get(DAWAK_RATE_KEY)
             rate = rate_entry.callcenter_rate if rate_entry else None
             label = f"{company} (دواك)"
-        elif company == SANITIZER_COMPANY and rep in sanitizer_targets and sanitizer_targets[rep][1] >= sanitizer_targets[rep][0] and sanitizer_targets[rep][0] > 0:
+        elif (company == SANITIZER_COMPANY and rep in sanitizer_targets
+              and sanitizer_targets[rep] > 0 and amount >= sanitizer_targets[rep]):
             rate = SANITIZER_BONUS_RATE
             label = company
         else:
@@ -527,6 +610,10 @@ class AdditionsEntry:
     receivables_deduction: Decimal = field(default_factory=lambda: Decimal("0"))
     vita_bonus: Decimal = field(default_factory=lambda: Decimal("0"))
     advance: Decimal = field(default_factory=lambda: Decimal("0"))
+    # تصحيح 2026-10-08 (الخطأ رقم 7 أعلى الملف): عمود "مسحوبات" — منفصل
+    # عن "سلف"، كان موجوداً بالملف منذ البداية ولم يُقرأ إطلاقاً. يُطرَح
+    # في الصافي تماماً كالسلف (قيمته سالبة أصلاً بالملف).
+    withdrawals: Decimal = field(default_factory=lambda: Decimal("0"))
 
 
 def parse_additions(file_obj) -> dict[str, AdditionsEntry]:
@@ -551,6 +638,7 @@ def parse_additions(file_obj) -> dict[str, AdditionsEntry]:
     c_receivables = cols.get("خصم الذمم")
     c_vita = cols.get("مكافأة فيتا")
     c_advance = cols.get("سلف")
+    c_withdrawals = cols.get("مسحوبات")
 
     def _col(row, idx):
         return _to_decimal(row[idx]) if idx is not None else Decimal("0")
@@ -572,6 +660,7 @@ def parse_additions(file_obj) -> dict[str, AdditionsEntry]:
             receivables_deduction=_col(row, c_receivables),
             vita_bonus=_col(row, c_vita),
             advance=_col(row, c_advance),
+            withdrawals=_col(row, c_withdrawals),
         )
     return out
 
@@ -596,7 +685,9 @@ def merge_additions(rep_commissions: dict, additions: dict) -> dict:
         a = add or AdditionsEntry()
         due = (total_commission + a.fixed_salary + a.returns_deduction
                + a.collection_deduction + a.receivables_deduction + a.vita_bonus)
-        net = due + a.advance
+        # تصحيح 2026-10-08 (الخطأ رقم 7 أعلى الملف): "مسحوبات" تُطرَح في
+        # الصافي تماماً كـ"سلف" (كلاهما سالب أصلاً بالملف).
+        net = due + a.advance + a.withdrawals
         out[rep] = {
             "team": a.team,
             "fixed_salary": a.fixed_salary,
@@ -605,6 +696,7 @@ def merge_additions(rep_commissions: dict, additions: dict) -> dict:
             "receivables_deduction": a.receivables_deduction,
             "vita_bonus": a.vita_bonus,
             "advance": a.advance,
+            "withdrawals": a.withdrawals,
             "due": due,
             "net": net,
             "has_addition_row": add is not None,

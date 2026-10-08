@@ -36,11 +36,6 @@ def build_workbook(result, meta):
         ["ملف مشروع دواك", meta.get("dawak_file_name", "")],
         ["ملف كشف حساب هبة", meta.get("hiba_file_name", "")],
         ["", ""],
-        ["عدد الصيدليات", s["pharmacies_count"]],
-        ["صيدليات متطابقة", s["matched_count"]],
-        ["صيدليات غير متطابقة", s["mismatched_count"]],
-        ["إجمالي فرق الصيدليات غير المتطابقة", float(s["mismatched_amount"])],
-        ["", ""],
         ["إجمالي مدين دواك (كل الصيدليات)", float(s["dawak_total_debit"])],
         ["إجمالي دائن دواك (كل الصيدليات)", float(s["dawak_total_credit"])],
         ["", ""],
@@ -52,35 +47,19 @@ def build_workbook(result, meta):
     ws0.column_dimensions["A"].width = 40
     ws0.column_dimensions["B"].width = 26
 
-    ws1 = wb.create_sheet("مطابقة الصيدليات")
-    ws1.sheet_view.rightToLeft = True
-    _header(ws1, ["رمز الصيدلية", "اسم الصيدلية", "إجمالي البون (مدين)", "إجمالي المرتجع الوهمي (دائن)",
-                  "الفرق", "الحالة (حسابنا)", "علامة النظام المصدر"])
-    for p in result["pharmacies"]:
-        ws1.append([
-            p["code"], p["name"], float(p["total_debit"]), float(p["total_credit"]), float(p["difference"]),
-            "مطابق" if p["matched"] else "غير مطابق",
-            "غير مطابق" if p["source_flagged_mismatch"] else "مطابق",
-        ])
-        ws1.cell(row=ws1.max_row, column=6).fill = OK_FILL if p["matched"] else BAD_FILL
-    for i, w in enumerate([14, 40, 20, 24, 14, 18, 20], start=1):
-        ws1.column_dimensions[get_column_letter(i)].width = w
-
-    ws2 = wb.create_sheet("تفاصيل الحركات")
-    ws2.sheet_view.rightToLeft = True
-    _header(ws2, ["رمز الصيدلية", "اسم الصيدلية", "التاريخ", "رقم السند", "البيان", "مدين", "دائن"])
-    for p in result["pharmacies"]:
-        for r in p["rows"]:
-            ws2.append([p["code"], p["name"], r["date"], r["voucher_no"], r["narration"], float(r["debit"]), float(r["credit"])])
-    for i, w in enumerate([14, 34, 12, 12, 50, 14, 14], start=1):
-        ws2.column_dimensions[get_column_letter(i)].width = w
-
-    # ---------------- مطابقة حسب "مركز الكلفة" (تصحيح 2026-09-30) ----------------
-    # مطابقة فعلية عبر الملفين (وليس طرح مدين/دائن داخل ملف دواك وحده كما كانت
-    # "مطابقة الصيدليات" أعلاه) — راجع توثيق engine.py لتفاصيل المشكلة والحل.
+    # تصحيح 2026-09-30 (طلب المستخدم الصريح): المطابقة حسب مركز الكلفة هي
+    # المقارنة الفعلية الرئيسية مع هبة، فتُبنى وتُلخَّص أولاً — قبل "مطابقة
+    # الصيدليات" الداخلية (بون=مرتجع وهمي) التي لا تقارن مع هبة إطلاقاً وقد
+    # تُضلِّل لو ظهرت أولاً كأنها "النتيجة".
     cost_centers = result.get("cost_centers")
     if cost_centers is not None:
         ccs = cost_centers["summary"]
+        ws0.append(["", ""])
+        ws0.append(["مطابقة حسب مركز الكلفة (دواك ⇄ هبة) — المقارنة الفعلية الرئيسية", ""])
+        ws0.append(["صيدليات/حسابات مطابقة فعلياً مع هبة", ccs["matched"]])
+        ws0.append(["صيدليات/حسابات غير مطابقة فعلياً مع هبة", ccs["mismatched"]])
+        ws0.append(["صيدليات لا توجد لها أي حركات هبة مقابلة", ccs["no_hiba_data"]])
+        ws0.append(["حركات هبة بمركز كلفة غير مطابَق (تحتاج مراجعة يدوية)", ccs["unresolved_hiba_rows"]])
         ws_cc = wb.create_sheet("مطابقة حسب مركز الكلفة")
         ws_cc.sheet_view.rightToLeft = True
         _header(ws_cc, [
@@ -126,12 +105,38 @@ def build_workbook(result, meta):
         for i, w in enumerate([26, 12, 12, 45, 14, 14], start=1):
             ws_ccu.column_dimensions[get_column_letter(i)].width = w
 
-        ws0.append(["", ""])
-        ws0.append(["مطابقة حسب مركز الكلفة (دواك ⇄ هبة)", ""])
-        ws0.append(["صيدليات/حسابات مطابقة فعلياً مع هبة", ccs["matched"]])
-        ws0.append(["صيدليات/حسابات غير مطابقة فعلياً مع هبة", ccs["mismatched"]])
-        ws0.append(["صيدليات لا توجد لها أي حركات هبة مقابلة", ccs["no_hiba_data"]])
-        ws0.append(["حركات هبة بمركز كلفة غير مطابَق (تحتاج مراجعة يدوية)", ccs["unresolved_hiba_rows"]])
+    # ---------------- مطابقة كل صيدلية داخلياً (بون = مرتجع وهمي) ----------------
+    # فحص ثانوي (لا يقارن مع هبة إطلاقاً) — يُبنى بعد المطابقة الفعلية أعلاه
+    # كي لا يُقرأ خطأً على أنه "النتيجة"، بناءً على طلب المستخدم الصريح 2026-09-30.
+    ws0.append(["", ""])
+    ws0.append(["مطابقة كل صيدلية داخلياً (بون = مرتجع وهمي) — فحص ثانوي، بلا مقارنة مع هبة", ""])
+    ws0.append(["عدد الصيدليات", s["pharmacies_count"]])
+    ws0.append(["صيدليات متطابقة داخلياً", s["matched_count"]])
+    ws0.append(["صيدليات غير متطابقة داخلياً", s["mismatched_count"]])
+    ws0.append(["إجمالي فرق الصيدليات غير المتطابقة داخلياً", float(s["mismatched_amount"])])
+
+    ws1 = wb.create_sheet("مطابقة الصيدليات")
+    ws1.sheet_view.rightToLeft = True
+    _header(ws1, ["رمز الصيدلية", "اسم الصيدلية", "إجمالي البون (مدين)", "إجمالي المرتجع الوهمي (دائن)",
+                  "الفرق", "الحالة (حسابنا)", "علامة النظام المصدر"])
+    for p in result["pharmacies"]:
+        ws1.append([
+            p["code"], p["name"], float(p["total_debit"]), float(p["total_credit"]), float(p["difference"]),
+            "مطابق" if p["matched"] else "غير مطابق",
+            "غير مطابق" if p["source_flagged_mismatch"] else "مطابق",
+        ])
+        ws1.cell(row=ws1.max_row, column=6).fill = OK_FILL if p["matched"] else BAD_FILL
+    for i, w in enumerate([14, 40, 20, 24, 14, 18, 20], start=1):
+        ws1.column_dimensions[get_column_letter(i)].width = w
+
+    ws2 = wb.create_sheet("تفاصيل الحركات")
+    ws2.sheet_view.rightToLeft = True
+    _header(ws2, ["رمز الصيدلية", "اسم الصيدلية", "التاريخ", "رقم السند", "البيان", "مدين", "دائن"])
+    for p in result["pharmacies"]:
+        for r in p["rows"]:
+            ws2.append([p["code"], p["name"], r["date"], r["voucher_no"], r["narration"], float(r["debit"]), float(r["credit"])])
+    for i, w in enumerate([14, 34, 12, 12, 50, 14, 14], start=1):
+        ws2.column_dimensions[get_column_letter(i)].width = w
 
     # ---------------- مطابقة الحركات دواك ⇄ هبة (إضافة لاحقة) ----------------
     payments = result.get("payments")

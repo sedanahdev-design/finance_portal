@@ -66,15 +66,9 @@ MODULES = [
         url_name="tax_inventory:index",
         color="#ca8a04",
     ),
-    ModuleDef(
-        code="receivables",
-        name="مطابقة الذمم مع قسم التوزيع",
-        short_name="مطابقة الذمم",
-        description="مطابقة أرصدة المدين والدائن حسب رقم البيان، مع تجميع الدفعات المتعددة لنفس البيان.",
-        icon="bi-diagram-3",
-        url_name="receivables:index",
-        color="#db2777",
-    ),
+    # وحدة "receivables" (مطابقة الذمم مع قسم التوزيع) أُلغيت نهائياً بتاريخ
+    # 2026-10-01 بطلب صريح من المستخدم ("طلعت مو فعالة") — حُذف تطبيقها بالكامل
+    # (receivables/) وأُزيلت من INSTALLED_APPS وملف urls.py الرئيسي.
     ModuleDef(
         code="dawak_compare",
         name="مطابقة دواك",

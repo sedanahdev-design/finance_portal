@@ -29,17 +29,26 @@ class ArgivitCompareUploadForm(forms.Form):
         choices=RATE_MODE_CHOICES, initial="fixed",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
+    # ملاحظة (2026-10-01): لا نستخدم step="0.01" هنا عمداً. حقل Django
+    # DecimalField يضيف تلقائياً خاصية min="0.0001" (من min_value) على
+    # عنصر <input type="number">، فيصبح أساس العدّ عند المتصفح هو 0.0001
+    # بدل 0، فيرفض أي رقم لا يساوي 0.0001 + (مضاعف صحيح لـ 0.01) — وهذا
+    # تحديداً سبب رسالة الخطأ التي ظهرت للمستخدم عند كتابة 133.50 (أقرب
+    # قيمتين مقبولتين كانتا 133.4901 و133.5001). الحل: step="any" يلغي
+    # تحقق "الخطوة" في المتصفح تماماً ويسمح بأي قيمة عشرية، بينما يبقى
+    # min_value=Decimal("0.0001") فعّالاً كما هو في التحقق على الخادم
+    # (Django clean/validators) تماماً كالسابق.
     rate_fixed = forms.DecimalField(
         label="سعر الصرف الثابت (ليرة لكل دولار)", required=False, min_value=Decimal("0.0001"),
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "مثال: 135"}),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "placeholder": "مثال: 135"}),
     )
     rate_min = forms.DecimalField(
         label="سعر الصرف — الحد الأدنى", required=False, min_value=Decimal("0.0001"),
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "مثال: 133"}),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "placeholder": "مثال: 133"}),
     )
     rate_max = forms.DecimalField(
         label="سعر الصرف — الحد الأعلى", required=False, min_value=Decimal("0.0001"),
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "مثال: 140"}),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "placeholder": "مثال: 140"}),
     )
 
     def clean(self):

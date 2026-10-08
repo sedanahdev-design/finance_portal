@@ -108,6 +108,72 @@
 ضمن ±4%) مقارنة بشيت "تقرير نتيجة " المرجعي الكامل لشهر تموز 2026 (8221 حركة
 نقدية + 869 حركة مرتجع). الفروقات المتبقية الصغيرة تعود لحالات نادرة جداً
 (اختلاف تهجئة اسم غير مكتشف، أو حركة مجموعة من 4+ أشخاص غير موثقة).
+
+تصحيحات 2026-10-08 (طلب المستخدم الصريح: "هلق بدنا ننتقل لعمولة الموزعين
+الداخليين عنا ضمن صفحة عمولة الموزعين (الصافي) دالة vlookup على النتيجة
+اللي عملتها بشكل يدوي وعملت مطابقة مع النتيجة اللي طلعت من التطبيق شوف
+اديش طلع فرق ومالي عرفان كيف ووين فيك تكتشف المشكلة وتحلها وتخبرني وين
+كانت المشكلة"). قارنّا مقابل ملفين حقيقيين: الناتج السابق للتطبيق نفسه
+(بإضافة عمود VLOOKUP يدوي للمستخدم) وملف دفتر الأستاذ الخام لشهر 9. الفرق
+الإجمالي المبلَّغ عنه كان -648.30 على 21 موزعاً. اكتُشفت وحُلّت 4 أسباب
+مستقلة، وتحقّقنا من كل واحد منها رقمياً مقابل شيت "تقرير" الموجود أصلاً
+داخل ملف دفتر الأستاذ نفسه (حساب الشركة الرسمي البديل، الذي تبيّن أنه
+المصدر الحقيقي لعمود VLOOKUP اليدوي — جمع قيم عمود "تقرير" حسب الاسم يطابق
+حرفياً عمود المطابقة اليدوية لكل موزع):
+
+  1) تكرار/تثليث عناوين أعمدة DIST_COLS و"البيان" في صف عناوين شيتي "دفتر
+     الأستاذ" و"مرتجعات" لهذا الشهر تحديداً (3 كتل بدفتر الأستاذ، كتلتان
+     بالمرتجعات) — كان _find_header يبني القاموس بحيث يفوز آخر ظهور للاسم
+     المكرر (dict comprehension، last-write-wins)، فكانت أعمدة الموزعين
+     الخمسة بدفتر الأستاذ تُقرأ فعلياً من كتلة أخيرة وهمية لا تحوي إلا قيم
+     0/1 (علم/فلاغ، ليست أسماء إطلاقاً)، فانعزلت كل عمولة التحصيل تحت موزع
+     وهمي اسمه الحرفي "1". الحل: _find_header يُبقي الآن على أول ظهور لكل
+     اسم عمود (first-write-wins).
+  2) حتى بعد (1)، حالتان فرديتان (مصطفى زيتون: حركتان بلا أي نص بيان
+     إطلاقاً؛ اسامة مسوتي: حركة واحدة) كانت الكتلة الأولى فيهما فارغة تماماً
+     بينما الكتلة الثانية (المكرّرة) تحمل الاسم الصحيح — فكانت الحركتان
+     تُفقَدان بالكامل (لا حتى آلية "بيد السيد" تنجح لمصطفى زيتون لأن نص
+     البيان نفسه كان "0"). الحل: _dist_cell (مع _all_header_positions) تدمج
+     كل الكتل المكرّرة لكل عمود موزع، وتأخذ أول قيمة "صالحة" منها (معبّأة
+     وليست رقماً صرفاً 0/1) بدل الاعتماد على كتلة واحدة فقط — ما يسمح
+     بالرجوع لكتلة ثانية حين تكون الأولى فارغة فعلاً لذلك السطر بالتحديد،
+     مع تجاهل تام لأي كتلة علم/فلاغ رقمية.
+  3) حركة تحصيل واحدة (سند 39064، مدين=130465، مراد علوش+بسام قصاص، الحساب
+     المقابل='1209297-مستودع السيروان - دمشق') استُبعدت بقاعدة is_warehouse
+     رغم أن شيت "تقرير" الرسمي يحسب لها عمولة طبيعية كاملة. تبيّن أن
+     "مستودع السيروان" مكتوب بصيغة حساب زبون حقيقي كاملة (رمز-اسم-مدينة،
+     مطابقة لصيغة "صيدلية ... - <مدينة>" لبقية الزبائن) — أي زبون جملة
+     فعلي يُحصَّل منه، لا حساب تحويل داخلي بين فروع الشركة كحالة "ارض
+     مستودع" الموثّقة. أُضيف استثناء محدَّد بالاسم (WAREHOUSE_ACCOUNT_
+     EXCEPTIONS) لهذا الحساب بعينه فقط، مع إبقاء قاعدة الاستبعاد العامة
+     لأي حساب "مستودع" آخر كما كانت (توافقاً مع تأكيد المستخدم 2026-08-31
+     بخصوص حسابات التحويل الداخلي).
+  4) عمولة المرتجعات كانت تُطبَّق بنسبة -0.5% كاملة على كل مشارك في الحركة
+     بصرف النظر عن عدد المشاركين، حتى في حالة "دراجة+دراجة" (كلا المشاركين
+     بعمود موزع دراجة/موزع دراجة 2 خام) — رغم أن نفس هذه الحالة بالضبط
+     تُنصَّف عمولتها إلى النصف في التحصيل النقدي (RATE_PAIR_MOTO_MOTO،
+     تصحيح 2026-09-28 أعلاه). تحقّقنا من شيت "تقرير" أن القاعدة نفسها تنطبق
+     على المرتجعات: حركة مرتجع مشتركة بين شخصين كلاهما بعمود دراجة خام
+     تُقسَّم عليها الـ0.5% (0.25% لكل منهما)، لا 0.5% كاملة لكل منهما
+     (مضاعفة الخصم فعلياً). أُضيفت _return_rate (مطابقة لـ_pair_rate تماماً
+     لكن على RETURN_RATE) لتطبيق هذا التنصيف فقط حين يكون المشاركان اثنين
+     بالضبط وكلاهما بعمود دراجة خام.
+  5) (إصلاح ثانوي مكمّل) شيت "اعادة توزيع" (فواتير أُعيد توزيعها على موزع
+     غير من رُحِّلت له أصلاً) — بنفس بنية شيت المرتجعات تماماً، ويُخصم منه
+     0.5% بنفس آلية المرتجعات (تحقّق: حركة واحدة هذا الشهر، بسام قصاص،
+     القيمة المؤجلة=4976، خصم -24.88=4976×0.5%)، ولم يكن هذا الشيت يُقرأ
+     إطلاقاً من قبل فتُفقَد مثل هذه الحركات (نادرة لكن فعلية) بالكامل. أُضيف
+     اكتشاف هذا الشيت (أي اسم شيت يحوي كلمة "توزيع") ودُمِج ضمن نفس مسار
+     معالجة المرتجعات (return_sources) بأعمدته الخاصة.
+
+نتيجة التحقق الكاملة بعد هذه التصحيحات الخمسة: 19 من 21 موزعاً يطابقون عمود
+المطابقة اليدوية (وشيت "تقرير") بدقة الكسر العشري الكاملة؛ الموزعان
+المتبقيان (اسامة مسوتي: +5.6، عبيدة السعدي: -9.0) تحقّقنا أن شيت "تقرير"
+الرسمي نفسه يطابق نتيجة التطبيق لا نتيجة عمود المطابقة اليدوية — أي أن عمود
+VLOOKUP اليدوي هو من فاتته هاتان الحركتان النادرتان (كل منهما حركة واحدة
+فريدة خلال الشهر)، وليس خللاً بالتطبيق. فرق الإجمالي العام انخفض من -648.30
+إلى -3.40 (=5.6-9.0، أي الفرق المتبقي من هاتين الحالتين فقط بلا أي تفسير
+آخر مطلوب).
 """
 from __future__ import annotations
 
@@ -125,6 +191,23 @@ CAR_TIER_COLS = {"موزع السائق", "موزع مساعد", "موزع اس�
 MOTO_TIER_COLS = {"موزع دراجة", "موزع دراجة 2"}
 
 WAREHOUSE_MARKER = "مستودع"
+# تصحيح 2026-10-08: "هلق بدنا ننتقل لعمولة الموزعين الداخليين ... شوف اديش
+# طلع فرق" — حركة تحصيل واحدة هذا الشهر (سند 39064، مدين=130465، مراد علوش
+# + بسام قصاص، الحساب المقابل='1209297-مستودع السيروان - دمشق') استُبعدت من
+# العمولة بقاعدة is_warehouse (لاحتواء اسم الحساب على كلمة "مستودع")، بينما
+# شيت "تقرير" الرسمي للشركة بالملف نفسه (المصدر الذي اعتمده المستخدم فعلياً
+# بمطابقته اليدوية) يحسب لها عمولة طبيعية كاملة (326.1625 لكل من الشريكين =
+# 130465×0.25%) — ما يفسّر فجوة مراد علوش (-326.1625) وجزءاً من فجوة بسام
+# قصاص. الفرق عن قاعدة الاستبعاد الموثّقة سابقاً (تأكيد المستخدم 2026-08-31
+# بخصوص حسابات "مستودع" الداخلية): اسم هذا الحساب بالتحديد مكتوب بالصيغة
+# الكاملة لحساب زبون حقيقي (رمز-اسم-مدينة، مطابق تماماً لصيغة "صيدلية ... -
+# <مدينة>" لبقية الزبائن)، وهو عملياً مستودع جملة/زبون جملة يُحصَّل منه
+# فعلياً، لا حساب تحويل داخلي بين فروع الشركة نفسها — بخلاف "ارض مستودع"
+# (ضمن NON_PERSON_MARKERS أدناه) الذي يبقى استبعاداً داخلياً صحيحاً. لذلك
+# أُضيف استثناء محدَّد بالاسم (WAREHOUSE_ACCOUNT_EXCEPTIONS) لهذا الحساب
+# بعينه، مع ترك قاعدة الاستبعاد العامة كما هي لأي حساب "مستودع" آخر غير
+# مُستثنى صراحةً (تماشياً مع القاعدة المؤكَّدة سابقاً لحسابات التحويل الداخلي).
+WAREHOUSE_ACCOUNT_EXCEPTIONS = {"السيروان"}
 NON_PERSON_MARKERS = {"بيد المندوب", "درعا", "ارض مستودع"}
 # أسماء بديلة/غير حقيقية تظهر أحياناً في عمود الموزع بدل الاسم الفعلي؛
 # الاسم الحقيقي يُستخرج حصراً من نص البيان ("بيد السيد ...") عند توفره.
@@ -213,8 +296,44 @@ def _is_populated(v) -> bool:
     return True
 
 
+def _all_header_positions(header_row, name: str) -> list:
+    """كل مواضع عمود باسم معيّن ضمن صف العناوين (لا تتوقف عند أول تطابق) —
+    تُستخدم لدمج الكتل المكرّرة لأعمدة DIST_COLS (راجع _dist_cell أدناه)."""
+    return [i for i, c in enumerate(header_row) if c is not None and str(_clean(c)) == name]
+
+
+def _dist_cell(row, positions: list):
+    """تصحيح 2026-10-08 (تتمة): حين يتكرر عمود موزع (مثل 'موزع السائق') أكثر
+    من مرة بصف العناوين، نقرأ كل الكتل المكرّرة بالترتيب ونأخذ أول قيمة
+    "صالحة" منها، لا أول كتلة فقط بشكل أعمى. القيمة تُعتبر غير صالحة إن كانت
+    غير معبّأة (_is_populated) أو كانت رقماً صرفاً (0/1 إلخ) — لأن اسم موزع
+    حقيقي لا يكون رقماً أبداً، بينما اكتشفنا أن الكتلة الأخيرة بهذا الملف
+    (دفتر الأستاذ) هي عمود علم/فلاغ 0/1 وليست أسماء إطلاقاً. هذا يسمح أيضاً
+    بالرجوع لكتلة لاحقة (مثل الكتلة الثانية المكرَّرة) حين تكون الكتلة الأولى
+    فارغة فعلاً لذلك السطر بالتحديد لكن الكتلة الثانية تحمل الاسم الصحيح —
+    حالة فعلية مؤكَّدة لأسماء "مصطفى زيتون" و"اسامة مسوتي" هذا الشهر، حيث
+    بالاعتماد على الكتلة الأولى فقط كانت حركاتهما تُفقَد بالكامل (ولا حتى
+    آلية "بيد السيد" تنجح لإحداها لأن نص البيان نفسه كان "0" بلا أي نص)."""
+    for idx in positions:
+        if idx >= len(row):
+            continue
+        v = row[idx]
+        if not _is_populated(v):
+            continue
+        s = _clean(v)
+        if s.isdigit():
+            continue
+        return v
+    return None
+
+
 def is_warehouse(name) -> bool:
-    return WAREHOUSE_MARKER in str(name or "")
+    text = str(name or "")
+    if WAREHOUSE_MARKER not in text:
+        return False
+    if any(exc in text for exc in WAREHOUSE_ACCOUNT_EXCEPTIONS):
+        return False
+    return True
 
 
 def _is_no_deduct(text) -> bool:
@@ -226,13 +345,34 @@ def _is_deduct_from_rep(text) -> bool:
 
 
 def _find_header(all_rows, required_cols, max_scan=12):
+    # تصحيح 2026-10-08: "هلق بدنا ننتقل لعمولة الموزعين الداخليين ... دالة vlookup
+    # على النتيجة اللي عملتها بشكل يدوي وعملت مطابقة مع النتيجة اللي طلعت من
+    # التطبيق شوف اديش طلع فرق" — ملف دفتر الأستاذ لهذا الشهر يكرر عناوين
+    # "موزع السائق/موزع مساعد/موزع دراجة/موزع دراجة 2/موزع استثناء" و"البيان"
+    # ثلاث مرات في صف العناوين نفسه (الكتلة الحقيقية أولاً، ثم نسخة مكررة شبه
+    # مطابقة، ثم كتلة أخيرة لا تحتوي إلا على قيم 0/1 (علم/فلاغ) وليست أسماء
+    # موزعين على الإطلاق). كانت built-in dict comprehension تبني القاموس بحيث
+    # يفوز آخر ظهور لاسم العمود المكرر (last-write-wins)، فكانت أعمدة الموزعين
+    # الخمسة تُقرأ فعلياً من الكتلة الثالثة الوهمية (قيم 0/1)، وكان عمود
+    # "البيان" يُقرأ من الكتلة الثانية (نص مكرر) بدل الكتلة الأولى الحقيقية.
+    # نتيجة ذلك: كل عمولة التحصيل انعزلت بالكامل تحت موزع وهمي اسمه الحرفي
+    # "1" (أي قيمة الفلاغ نفسها)، بينما باقي الموزعين الحقيقيين لم تُحسب لهم
+    # عمولة تحصيل إطلاقاً من هذا الملف. الحل: الإبقاء على أول ظهور لكل اسم
+    # عمود (first-write-wins)، ما يضمن قراءة الكتلة الحقيقية الأولى دائماً.
     for idx in range(min(max_scan, len(all_rows))):
         row = all_rows[idx]
         if not row:
             continue
         cells = {str(_clean(c)) for c in row if c is not None}
         if required_cols.issubset(cells):
-            return idx, {str(_clean(c)): i for i, c in enumerate(row) if c is not None}
+            cols = {}
+            for i, c in enumerate(row):
+                if c is None:
+                    continue
+                key = str(_clean(c))
+                if key not in cols:
+                    cols[key] = i
+            return idx, cols
     raise ValueError("تعذّر العثور على صف العناوين المطلوب في الملف.")
 
 
@@ -483,11 +623,21 @@ def parse_distributor_file(file_obj) -> ParseResult:
 
     ledger_sheet = None
     returns_sheet = None
+    # تصحيح 2026-10-08: شيت "اعادة توزيع" (فواتير أُعيد توزيعها على موزع
+    # بعد ترحيلها أصلاً لموزع آخر) يحمل نفس بنية شيت المرتجعات تماماً
+    # (الفاتورة/القيمة المؤجلة/أعمدة DIST_COLS) ويُخصم منه 0.5% تماماً كخصم
+    # مرتجع عادي — تحقّقنا من ذلك رقمياً عبر شيت "تقرير" الرسمي بالملف (حالة
+    # بسام قصاص: سطر واحد بالشهر، القيمة المؤجلة=4976، يُخصم منه -24.88 =
+    # 4976×0.5% بالضبط، بنفس آلية المرتجعات). لم يكن هذا الشيت يُقرأ إطلاقاً
+    # سابقاً، فكانت هذه الحركات (نادرة لكن فعلية) تُفقَد بالكامل بلا أي أثر.
+    redistribution_sheet = None
     for name in wb.sheetnames:
         if ledger_sheet is None and ("الأستاذ" in name or "استاذ" in name):
             ledger_sheet = name
         if returns_sheet is None and "مرتجع" in name:
             returns_sheet = name
+        if redistribution_sheet is None and "توزيع" in name:
+            redistribution_sheet = name
     if ledger_sheet is None:
         raise ValueError("تعذّر العثور على شيت 'دفتر الأستاذ' داخل الملف.")
 
@@ -496,7 +646,10 @@ def parse_distributor_file(file_obj) -> ParseResult:
     header_idx, cols = _find_header(rows, REQUIRED_LEDGER_COLS)
     c_debit, c_date, c_bayan = cols["مدين"], cols["التاريخ"], cols["البيان"]
     c_account = cols.get("الحساب المقابل")
-    dist_cols = {c: cols[c] for c in DIST_COLS if c in cols}
+    # دمج كل الكتل المكرّرة لكل عمود موزع (راجع _dist_cell) بدل الاعتماد على
+    # موضع واحد فقط — انظر توثيق 2026-10-08 أعلى _dist_cell/_find_header.
+    header_row = rows[header_idx]
+    dist_cols = {c: _all_header_positions(header_row, c) for c in DIST_COLS if c in cols}
 
     raw_ledger_rows = []
     for row in rows[header_idx + 1:]:
@@ -507,41 +660,55 @@ def parse_distributor_file(file_obj) -> ParseResult:
             continue
         raw_ledger_rows.append(row)
 
-    rrows = []
-    rcols = {}
-    r_header_idx = None
-    c_ramount = c_rdate = None
-    c_rnote = None
-    if returns_sheet:
-        ws2 = wb[returns_sheet]
+    # كل "مصدر شبيه بالمرتجعات" (شيت المرتجعات نفسه + شيت إعادة التوزيع إن
+    # وُجد) يُعالَج بأعمدته الخاصة (كل شيت قد تختلف مواضع أعمدته عن الآخر) —
+    # راجع توثيق 2026-10-08 أعلى اكتشاف الشيتات. كل عنصر: rows (صفوف الشيت
+    # بعد العنوان، مُصفّاة بمبلغ≠0)، rcols (فهرس الأعمدة)، dist_cols (مواضع
+    # DIST_COLS المدمجة)، c_amount، c_note.
+    return_sources = []
+    for sheet_name in (returns_sheet, redistribution_sheet):
+        if not sheet_name:
+            continue
+        ws2 = wb[sheet_name]
         rrows_all = list(ws2.iter_rows(values_only=True))
-        r_header_idx, rcols = _find_header(rrows_all, REQUIRED_RETURN_COLS)
-        c_ramount = rcols["القيمة المؤجلة"]
-        c_rcustomer = rcols.get("اسم الزبون")
+        rh_idx, rcols_i = _find_header(rrows_all, REQUIRED_RETURN_COLS)
+        c_ramount_i = rcols_i["القيمة المؤجلة"]
+        r_header_row_i = rrows_all[rh_idx]
+        # نفس تصحيح 2026-10-08 أعلاه (دفتر الأستاذ): كل شيت من هذين قد يكرّر
+        # أعمدة DIST_COLS — دمج كل الكتل المتاحة بدل الاعتماد على كتلة واحدة
+        # فقط، للاتساق وللحماية من أي اختلاف فردي بين الكتلتين (تماماً
+        # كحالتي "اسامة مسوتي"/"مصطفى زيتون" بدفتر الأستاذ).
+        r_dist_cols_i = {c: _all_header_positions(r_header_row_i, c) for c in DIST_COLS if c in rcols_i}
         # عمود "ملاحظات" هو مصدر عبارة "لا تخصم على أحد" فعلياً في شيت المرتجعات
         # (367 حركة موثّقة في الملف المرجعي) — لم يكن الكود القديم يقرأه إطلاقاً.
-        c_rnote = rcols.get("ملاحظات")
-        for row in rrows_all[r_header_idx + 1:]:
+        c_rnote_i = rcols_i.get("ملاحظات")
+        rows_i = []
+        for row in rrows_all[rh_idx + 1:]:
             if not row:
                 continue
-            amt = _to_decimal(row[c_ramount])
+            amt = _to_decimal(row[c_ramount_i])
             if amt == 0:
                 continue
-            rrows.append(row)
+            rows_i.append(row)
+        return_sources.append({
+            "rows": rows_i, "rcols": rcols_i, "dist_cols": r_dist_cols_i,
+            "c_amount": c_ramount_i, "c_note": c_rnote_i,
+        })
 
-    # -------- بناء قائمة الأسماء المرجعية من كل الأعمدة الخام (الشيتين معاً) --------
+    # -------- بناء قائمة الأسماء المرجعية من كل الأعمدة الخام (كل الشيتات) --------
     resolver = NameResolver()
     for row in raw_ledger_rows:
-        for rc, idx in dist_cols.items():
-            v = row[idx] if idx < len(row) else None
+        for rc, positions in dist_cols.items():
+            v = _dist_cell(row, positions)
             if _is_populated(v):
                 resolver.observe(v)
-    for row in rrows:
-        for rc in DIST_COLS:
-            if rc in rcols:
-                v = row[rcols[rc]]
-                if _is_populated(v):
-                    resolver.observe(v)
+    for source in return_sources:
+        for row in source["rows"]:
+            for rc in DIST_COLS:
+                if rc in source["dist_cols"]:
+                    v = _dist_cell(row, source["dist_cols"][rc])
+                    if _is_populated(v):
+                        resolver.observe(v)
     resolver.finalize()
 
     def infer_tier(name: str) -> Optional[str]:
@@ -557,8 +724,8 @@ def parse_distributor_file(file_obj) -> ParseResult:
     for row in raw_ledger_rows:
         bayan = _clean(row[c_bayan])
         has_biyad = bool(BIYAD_RE.search(bayan))
-        for rc, idx in dist_cols.items():
-            v = row[idx] if idx < len(row) else None
+        for rc, positions in dist_cols.items():
+            v = _dist_cell(row, positions)
             if not _is_populated(v):
                 continue
             raw_nm = _clean(v)
@@ -624,8 +791,8 @@ def parse_distributor_file(file_obj) -> ParseResult:
 
         raw_participants: list[Participant] = []
         saw_placeholder = False  # وُجد اسم بديل غير حقيقي بأحد الأعمدة (يحتاج استبداله من البيان)
-        for rc, idx in dist_cols.items():
-            v = row[idx] if idx < len(row) else None
+        for rc, positions in dist_cols.items():
+            v = _dist_cell(row, positions)
             if not _is_populated(v):
                 continue
             raw_nm = _clean(v)
@@ -734,17 +901,21 @@ def parse_distributor_file(file_obj) -> ParseResult:
     no_deduct_return_count = 0
     no_deduct_return_amount = Decimal("0")
     unresolved_return_rows: list[dict] = []
-    if returns_sheet:
-        for row in rrows:
+    for source in return_sources:
+        rcols = source["rcols"]
+        r_dist_cols = source["dist_cols"]
+        c_ramount = source["c_amount"]
+        c_rnote = source["c_note"]
+        for row in source["rows"]:
             amt = _to_decimal(row[c_ramount])
             bayan_val = row[rcols["الفاتورة"]] if "الفاتورة" in rcols else ""
             bayan = _clean(bayan_val)
             note = _clean(row[c_rnote]) if c_rnote is not None and c_rnote < len(row) else ""
             parts: list[Participant] = []
             for rc in DIST_COLS:
-                if rc not in rcols:
+                if rc not in r_dist_cols:
                     continue
-                v = row[rcols[rc]]
+                v = _dist_cell(row, r_dist_cols[rc])
                 if not _is_populated(v):
                     continue
                 raw_nm = _clean(v)
@@ -867,17 +1038,40 @@ def compute_collection_commission(collection_rows: list[LedgerRow]) -> dict[str,
     return dict(out)
 
 
+def _return_rate(parts: list) -> Decimal:
+    """تصحيح 2026-10-08 (نفس بلاغ المستخدم: "شوف اديش طلع فرق ... وين فيك
+    تكتشف المشكلة") — فجوة سليم العبد ويوسف شروف (-8.7275 لكل منهما، بالضبط
+    نفس المبلغ) تحقّقت من شيت "تقرير" الرسمي بالملف: حين تكون حركة مرتجع
+    مشتركة بين **شخصين فقط وكلاهما بعمود دراجة خام** (موزع دراجة/موزع دراجة
+    2 — تماماً معيار MOTO_TIER_COLS ونفس حالة سليم+يوسف المرجعية في
+    _pair_rate أعلاه)، فإن "تقرير" يقسّم خصم 0.5% الموحّد على الاثنين (0.25%
+    لكل منهما) لا أن يطبّق 0.5% كاملة على كل واحد منهما على حدة كما كان
+    الكود القديم يفعل — ما يعني مضاعفة الخصم فعلياً لحركات دراجة+دراجة
+    المشتركة. تحقّق مباشر برقم: حركة مرتجع سليم+يوسف بقيمة 800 أعطت -2 لكل
+    منهما بشيت "تقرير" (800×0.25%) لا -4 (800×0.5%). أما حركات المرتجع
+    المشتركة بين شخصين ليسا كليهما بعمود دراجة (مثل بسام قصاص/مراد علوش،
+    عمودا سيارة) فتبقى 0.5% كاملة لكل منهما كالسابق (تحقّق مباشر أيضاً من
+    "تقرير": حركة مرتجع بسام+مراد بقيمة 3877.48 أعطت -19.3874 لكل منهما،
+    أي 3877.48×0.5% كاملة). القاعدة هنا تطابق حرفياً _pair_rate أعلاه، لكنها
+    مُطبَّقة على RETURN_RATE بدل RATE_PAIR."""
+    if len(parts) == 2 and all(getattr(p, "role_col", None) in MOTO_TIER_COLS for p in parts):
+        return RETURN_RATE / Decimal(2)
+    return RETURN_RATE
+
+
 def compute_return_commission(return_rows: list[ReturnRow]) -> dict[str, Decimal]:
-    """خصم موحّد 0.5% من كل مشارك في حركة المرتجع، بصرف النظر عن دوره أو
-    عدد المشاركين معه (راجع التوثيق في أعلى الملف)."""
+    """خصم 0.5% من كل مشارك في حركة المرتجع، إلا حين يكون المشاركان كلاهما
+    على عمود دراجة خام فقط فتُقسَّم الـ0.5% عليهما (راجع _return_rate
+    وتوثيق أعلى الملف)."""
     out: dict[str, Decimal] = defaultdict(Decimal)
     for row in return_rows:
         # إصلاح: "لا تخصم على أحد" — نفس المنطق أعلاه: الحركة تبقى ظاهرة في
         # return_rows، لكن خصمها = 0 لكل المشاركين بدل تطبيق RETURN_RATE.
         if row.no_deduct:
             continue
+        rate = _return_rate(row.participants)
         for p in row.participants:
-            out[p.name] += row.amount * RETURN_RATE
+            out[p.name] += row.amount * rate
     return dict(out)
 
 

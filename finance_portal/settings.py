@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "account_statement",       # 7) فصل كشف الحساب (ليرة / دولار)
     "compensation",            # 8) تعويضات فيتا فارما
     "external_commissions",    # 9) عمولات الموزعين الخارجيين
+    "argivit_compare",         # 10) مطابقة أسعار الارجيفيت والمبيعات مع المرتجعات (أُضيفت 2026-10-01)
 ]
 
 MIDDLEWARE = [

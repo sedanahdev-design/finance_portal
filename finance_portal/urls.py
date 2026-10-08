@@ -15,6 +15,7 @@ urlpatterns = [
     path("account-statement/", include("account_statement.urls")),
     path("compensation/", include("compensation.urls")),
     path("external-commissions/", include("external_commissions.urls")),
+    path("argivit-compare/", include("argivit_compare.urls")),
 ]
 
 if settings.DEBUG:

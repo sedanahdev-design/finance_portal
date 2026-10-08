@@ -105,6 +105,15 @@ MODULES = [
         url_name="external_commissions:index",
         color="#0e7490",
     ),
+    ModuleDef(
+        code="argivit_compare",
+        name="مطابقة أسعار الارجيفيت والمبيعات مع المرتجعات",
+        short_name="مطابقة الارجيفيت",
+        description="مطابقة السعر الإفرادي بالحركة اليومية مع قائمة الأسعار بالدولار عبر أربع مراحل متتالية (مباشرة، بعد الحسم، عرض مفرق، عرض مميز)، ومطابقة كل مبيع مع مرتجعه حسب الزبون (مفرق وجملة).",
+        icon="bi-currency-dollar",
+        url_name="argivit_compare:index",
+        color="#9333ea",
+    ),
 ]
 
 MODULES_BY_CODE = {m.code: m for m in MODULES}

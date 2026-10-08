@@ -31,4 +31,9 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["gunicorn", "finance_portal.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
+# limit-request-field_size/--limit-request-fields مرفوعتان عن افتراضي gunicorn
+# (8190 بايت لكل ترويسة) كإجراء وقائي فقط ضد ترويسات Cookie كبيرة بشكل غير
+# معتاد؛ السبب المعتاد لخطأ "Request Header Fields Too Large" هو تراكم كوكيز
+# من مشاريع تطوير محلية أخرى على نطاق "localhost" (غير مقيد بالمنفذ) وليس
+# خللاً في هذا التطبيق — يُحل من طرف المتصفح (مسح بيانات الموقع لـlocalhost).
+CMD ["gunicorn", "finance_portal.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--limit-request-field_size", "32760", "--limit-request-fields", "200"]

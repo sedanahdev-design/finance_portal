@@ -15,6 +15,17 @@ class CommissionRun(models.Model):
     total_commission = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     unrated_companies_count = models.IntegerField(default=0)
 
+    # ميزة "ملف الإضافات" (2026-09-27) — راتب ثابت/مرتجعات/خصم تحصيل/خصم
+    # ذمم/مكافأة فيتا/سلف لكل مندوب، مدمجة مع العمولة المحسوبة لبناء
+    # المستحق والصافي. انظر commissions/engine.py (merge_additions) لتوثيق
+    # الصيغة الكاملة. الملف اختياري — additions_used=False يعني تشغيلاً
+    # عادياً بلا هذه الميزة (شيت "نهائي" يبقى بشكله القديم تماماً).
+    additions_used = models.BooleanField(default=False)
+    total_due = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    total_net = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    additions_missing_count = models.IntegerField(default=0)  # عمولة محسوبة بلا صف إضافات
+    additions_unmatched_count = models.IntegerField(default=0)  # صف إضافات بلا مبيعات مطابقة
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

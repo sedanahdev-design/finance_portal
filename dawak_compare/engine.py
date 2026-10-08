@@ -21,6 +21,38 @@
     عن نفس المبلغ بأي تاريخ. إن وُجدت لا تُصنَّف "فرق" بل "موجود بتاريخ
     مختلف" مع عرض التاريخين معاً؛ فقط إن لم يوجد المبلغ إطلاقاً تُصنَّف
     "فرق حقيقي". الهدف عدم إخفاء أي معلومة عن المستخدم بصمت.
+
+مطابقة حسب "مركز الكلفة" (تصحيح 2026-09-30، طلب المستخدم الصريح):
+    ملف "كشف حساب هبة" يحمل عمود "مركز الكلفة" يُسنِد كل حركة فيه إلى
+    صيدلية/مستودع بعينه من ملف مشروع دواك — لكن التسمية غالباً لا تُطابق
+    حرفياً اسم الحساب الفرعي بملف دواك. مثال حقيقي من ملف مرجعي فعلي
+    (طلب المستخدم توضيحه بالضبط): حساب دواك الفرعي "1209014-مستودع سدانة-
+    صناعة" يُسجَّل بملف هبة تحت مركز الكلفة "مستودع الصناعة" فقط (بلا كلمة
+    "سدانة")؛ وأحياناً يكون مركز الكلفة اسم صيدلية بعينها (مثال: "صيدلية
+    هناء بطحيش-كفرسوسة" يقابل حساب دواك "12011303-صيدلية هناء بطحيش -
+    كفرسوسة"، بفارق شرطة/مسافة بسيط). المطابقة الحرفية السابقة (لا وجود لها
+    أصلاً قبل هذا التصحيح) كانت ستفشل بهذه الفروقات، وهو ما بلّغ عنه
+    المستخدم صراحة: "الفرق بس 7" لصيدلية هناء بطحيش لم يكن في الحقيقة
+    ناتجاً عن أي مطابقة مع هبة إطلاقاً، بل هو فرق "بون - مرتجع وهمي" الداخلي
+    بملف دواك وحده (طرح مدين من دائن **بنفس الملف**، بلا أي مقارنة حقيقية
+    مع هبة) — بالضبط كما وصف المستخدم المشكلة.
+
+    الحل: مطابقة تقريبية بتداخل الكلمات (بعد تطبيع الشرطات كفواصل كلمات،
+    وتجريد بادئة "ال" من كل كلمة، وتوحيد الألف بأشكالها) بين نص "مركز
+    الكلفة" واسم كل صيدلية/حساب فرعي بملف دواك — إن كانت كل كلمات الطرف
+    الأقصر (بعد التطبيع) موجودة ضمن كلمات الطرف الأطول تُعتبَر مطابقة واثقة
+    (تحقق فعلي: نتيجة تطابق كاملة 1.0 لكلا المثالين أعلاه، مقابل 0.0 مع أي
+    صيدلية أخرى غير معنية). بعد الإسناد، نُجمِّع حركات هبة حسب الحساب
+    الفرعي المُطابَق بدواك، ونقارن **بشكل تبادلي** (نفس منطق الاتجاهين في
+    مطابقة الدفعات أعلاه: مدين طرف = دائن الطرف الآخر): دائن دواك للحساب
+    ضد مدين هبة المطابق له، ومدين دواك ضد دائن هبة المطابق له (تحقق فعلي
+    على الملف المرجعي: دائن دواك لحساب "مستودع سدانة- صناعة" = 105200.00
+    بالضبط = مدين هبة لمركز الكلفة "مستودع الصناعة" = 105200.00 — تطابق
+    تام، يثبت صحة اتجاه المقارنة). أي حساب فرعي بدواك ليس له أي حركة هبة
+    مطابقة يُعرَض بوضوح بحالة مستقلة "لا توجد حركات مقابلة عند هبة" (لا
+    "غير مطابق" المُضلِّلة، فهذا غياب بيانات لا فرق رقمي). وأي حركة هبة
+    تحمل مركز كلفة لم نجد له أي حساب فرعي مطابق واثق بدواك تُعرَض في شيت
+    مستقل للمراجعة اليدوية بدل إسقاطها بصمت.
 """
 
 import re
@@ -192,6 +224,10 @@ def parse_hiba_statement(file_obj):
         narration = row[col["البيان"]] if col.get("البيان") is not None and col["البيان"] < len(row) else None
         voucher_col = col.get("رقم القيد")
         voucher = row[voucher_col] if voucher_col is not None and voucher_col < len(row) else None
+        cc_col = col.get("مركز الكلفة")
+        cost_center = row[cc_col] if cc_col is not None and cc_col < len(row) else None
+        account_col = col.get("الحساب")
+        account = row[account_col] if account_col is not None and account_col < len(row) else None
         entries.append({
             "row_order": order,
             "voucher_no": _clean(voucher),
@@ -200,6 +236,8 @@ def parse_hiba_statement(file_obj):
             "credit": credit,
             "raw_date": _clean(raw_date),
             "entry_date": _to_date(raw_date),
+            "cost_center": _clean(cost_center),
+            "account": _clean(account),
         })
         order += 1
 
@@ -227,6 +265,121 @@ def _flatten_dawak_entries(pharmacies):
             })
             order += 1
     return entries
+
+
+# --- مطابقة "مركز الكلفة" (ملف هبة) مع اسم الحساب الفرعي (ملف دواك) —
+# راجع توثيق أعلى الملف لتفاصيل المشكلة والتحقق الفعلي. ---
+def _cc_tokens(text):
+    s = (text or "").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+    s = s.replace("-", " ").replace("(", " ").replace(")", " ")
+    s = re.sub(r"[.,]", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    tokens = set()
+    for tok in s.split():
+        if tok.startswith("ال") and len(tok) > 3:
+            tok = tok[2:]
+        if tok:
+            tokens.add(tok)
+    return tokens
+
+
+def match_cost_center_to_pharmacy(cost_center_text, pharmacies, cutoff=0.6):
+    """يبحث عن أفضل حساب فرعي بملف دواك (اسماً، مع رمزه) يطابق نص "مركز
+    الكلفة" بملف هبة تقريبياً — تداخل الكلمات بعد التطبيع (لا تطابق حرفي،
+    راجع توثيق أعلى الملف). يعيد (pharmacy, score) أو None إن لم يوجد أي
+    تداخل يبلغ حد الثقة cutoff."""
+    ctoks = _cc_tokens(cost_center_text)
+    if not ctoks:
+        return None
+    best, best_score = None, 0.0
+    for ph in pharmacies:
+        ptoks = _cc_tokens(ph["name"])
+        if not ptoks:
+            continue
+        inter = ctoks & ptoks
+        if not inter:
+            continue
+        score = len(inter) / min(len(ctoks), len(ptoks))
+        if score > best_score:
+            best_score, best = score, ph
+    if best is not None and best_score >= cutoff:
+        return best, best_score
+    return None
+
+
+def resolve_cost_centers(pharmacies, hiba_entries, cutoff=0.6):
+    """يُسنِد كل حركة هبة لها "مركز الكلفة" إلى الحساب الفرعي المطابق بملف
+    دواك (يضيف hiba_pharmacy_code/hiba_pharmacy_name/cc_match_score لكل
+    حركة مباشرة)، ويعيد أيضاً خريطة (نص مركز الكلفة الخام -> نتيجة
+    المطابقة) للشفافية/التصحيح. لا يُسقِط أي حركة بصمت — الحركات التي
+    تعذّرت مطابقتها تبقى بلا إسناد (hiba_pharmacy_code=None) لتُعرَض لاحقاً
+    في شيت مستقل للمراجعة اليدوية."""
+    cache = {}
+    for e in hiba_entries:
+        raw = e.get("cost_center") or ""
+        if raw not in cache:
+            cache[raw] = match_cost_center_to_pharmacy(raw, pharmacies, cutoff=cutoff) if raw else None
+        found = cache[raw]
+        if found:
+            ph, score = found
+            e["hiba_pharmacy_code"] = ph["code"]
+            e["hiba_pharmacy_name"] = ph["name"]
+            e["cc_match_score"] = score
+        else:
+            e["hiba_pharmacy_code"] = None
+            e["hiba_pharmacy_name"] = None
+            e["cc_match_score"] = None
+    return cache
+
+
+def compute_cost_center_reconciliation(pharmacies, hiba_entries, tolerance=Decimal("1")):
+    """مطابقة تبادلية (راجع توثيق أعلى الملف) بين إجمالي كل حساب فرعي بملف
+    دواك وإجمالي حركات هبة المُسنَدة إليه عبر مركز الكلفة: دائن دواك ضد
+    مدين هبة، ومدين دواك ضد دائن هبة."""
+    resolve_cost_centers(pharmacies, hiba_entries)
+
+    by_pharmacy = defaultdict(list)
+    unresolved = []
+    for e in hiba_entries:
+        if not e.get("cost_center"):
+            continue
+        if e.get("hiba_pharmacy_code"):
+            by_pharmacy[e["hiba_pharmacy_code"]].append(e)
+        else:
+            unresolved.append(e)
+
+    rows = []
+    for ph in pharmacies:
+        h_entries = by_pharmacy.get(ph["code"], [])
+        hiba_debit = sum((e["debit"] for e in h_entries), Decimal("0"))
+        hiba_credit = sum((e["credit"] for e in h_entries), Decimal("0"))
+        has_hiba_data = len(h_entries) > 0
+        diff_vs_hiba_debit = ph["total_credit"] - hiba_debit      # دائن دواك ضد مدين هبة
+        diff_vs_hiba_credit = ph["total_debit"] - hiba_credit     # مدين دواك ضد دائن هبة
+        if not has_hiba_data:
+            status = "no_hiba_data"
+        elif abs(diff_vs_hiba_debit) <= tolerance and abs(diff_vs_hiba_credit) <= tolerance:
+            status = "matched"
+        else:
+            status = "mismatched"
+        rows.append({
+            "code": ph["code"], "name": ph["name"],
+            "dawak_debit": ph["total_debit"], "dawak_credit": ph["total_credit"],
+            "hiba_debit": hiba_debit, "hiba_credit": hiba_credit,
+            "hiba_rows_count": len(h_entries),
+            "diff_vs_hiba_debit": diff_vs_hiba_debit, "diff_vs_hiba_credit": diff_vs_hiba_credit,
+            "status": status, "hiba_rows": h_entries,
+        })
+
+    summary = {
+        "pharmacies_with_hiba_data": len([r for r in rows if r["status"] != "no_hiba_data"]),
+        "matched": len([r for r in rows if r["status"] == "matched"]),
+        "mismatched": len([r for r in rows if r["status"] == "mismatched"]),
+        "no_hiba_data": len([r for r in rows if r["status"] == "no_hiba_data"]),
+        "unresolved_hiba_rows": len(unresolved),
+        "unresolved_hiba_amount": sum((e["debit"] + e["credit"] for e in unresolved), Decimal("0")),
+    }
+    return {"rows": rows, "unresolved": unresolved, "summary": summary}
 
 
 def _secondary_lookup(entry, amount, other_entries, other_field):
@@ -371,9 +524,14 @@ def build_result(pharmacies, hiba_totals):
     # يحمل قائمة حركات مفصّلة (entries)؛ محفوظة بشكل مستقل تماماً عن مطابقة
     # الصيدليات أعلاه حتى لا نغيّر سلوكها القائم.
     payments = None
+    cost_centers = None
     if hiba_totals.get("entries") is not None:
+        # تصحيح 2026-09-30: مطابقة مركز الكلفة أولاً (تُسنِد hiba_pharmacy_*
+        # على كل حركة هبة مباشرة) — قبل تسطيح حركات دواك، حتى تستفيد مطابقة
+        # الدفعات أدناه من هذا الإسناد أيضاً إن احتاجته لاحقاً.
+        cost_centers = compute_cost_center_reconciliation(pharmacies, hiba_totals["entries"])
         dawak_entries = _flatten_dawak_entries(pharmacies)
         payments = match_dawak_hiba_payments(dawak_entries, hiba_totals["entries"])
 
     return {"pharmacies": pharmacies, "matched": matched, "mismatched": mismatched,
-            "summary": summary, "payments": payments}
+            "summary": summary, "payments": payments, "cost_centers": cost_centers}

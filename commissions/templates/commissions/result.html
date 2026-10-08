@@ -13,10 +13,22 @@
   <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_sales|floatformat:0|intcomma }}</div><div class="label">إجمالي المبيعات (صافي المرتجعات)</div></div></div>
   <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_commission|floatformat:2|intcomma }}</div><div class="label">إجمالي العمولات المستحقة</div></div></div>
   <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.unrated_companies_count }}</div><div class="label">شركات بلا نسبة</div></div></div>
+  {% if run.additions_used %}
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_due|floatformat:2|intcomma }}</div><div class="label">إجمالي المستحق (بعد الإضافات)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-tile"><div class="num">{{ run.total_net|floatformat:2|intcomma }}</div><div class="label">إجمالي الصافي (بعد خصم السلف)</div></div></div>
+  {% endif %}
 </div>
 
 {% if run.unrated_companies_count %}
 <div class="alert alert-warning">توجد {{ run.unrated_companies_count }} شركة غير موجودة في جدول نسب العمولات، احتُسبت عمولتها صفراً. راجع شيت "شركات بلا نسبة" داخل ملف النتيجة.</div>
+{% endif %}
+
+{% if run.additions_used %}
+<div class="alert alert-info">
+  تم دمج ملف الإضافات مع هذا التشغيل — شيت "نهائي" داخل ملف النتيجة يتضمّن الآن أعمدة الفريق/الراتب الثابت/مرتجعات/خصم التحصيل/خصم الذمم/مكافأة فيتا/المستحق/سلف/الصافي لكل مندوب.
+  {% if run.additions_missing_count %}توجد {{ run.additions_missing_count }} حالة عمولة محسوبة بلا صف إضافات مطابق (راجع شيت "مندوبون بلا صف إضافات").{% endif %}
+  {% if run.additions_unmatched_count %}توجد {{ run.additions_unmatched_count }} حالة اسم بملف الإضافات بلا مبيعات مطابقة (راجع شيت "أسماء بملف الإضافات غير مطابقة").{% endif %}
+</div>
 {% endif %}
 
 <div class="table-wrap">

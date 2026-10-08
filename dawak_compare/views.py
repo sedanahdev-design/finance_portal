@@ -44,6 +44,8 @@ def run_view(request):
     s = result["summary"]
     payments = result.get("payments")
     ps = payments["summary"] if payments else {}
+    cost_centers = result.get("cost_centers")
+    ccs = cost_centers["summary"] if cost_centers else {}
 
     run = DawakCompareRun.objects.create(
         created_by=request.user, dawak_file_name=dawak_f.name, hiba_file_name=hiba_f.name,
@@ -57,6 +59,10 @@ def run_view(request):
         payments_found_diff_date_amount=Decimal(str(ps.get("found_diff_date_amount", 0))),
         payments_true_diff_count=ps.get("true_diff_count", 0),
         payments_true_diff_amount=Decimal(str(ps.get("true_diff_amount", 0))),
+        cc_matched_count=ccs.get("matched", 0),
+        cc_mismatched_count=ccs.get("mismatched", 0),
+        cc_no_hiba_data_count=ccs.get("no_hiba_data", 0),
+        cc_unresolved_hiba_rows=ccs.get("unresolved_hiba_rows", 0),
     )
     buf = build_workbook(result, {"dawak_file_name": dawak_f.name, "hiba_file_name": hiba_f.name})
     run.result_file.save(f"مطابقة_دواك_{run.pk}.xlsx", ContentFile(buf.read()), save=True)
@@ -64,7 +70,15 @@ def run_view(request):
     log_action(request, AuditLog.Action.RUN, f"مطابقة دواك #{run.pk}", module_code="dawak_compare", meta={"run_id": run.pk})
     msgs = []
     if s["mismatched_count"]:
-        msgs.append(f"توجد {s['mismatched_count']} صيدلية غير متطابقة.")
+        msgs.append(f"توجد {s['mismatched_count']} صيدلية غير متطابقة (داخل ملف دواك وحده).")
+    if ccs.get("mismatched"):
+        msgs.append(
+            f"توجد {ccs['mismatched']} صيدلية/حساب فرعي فرقه غير مطابق فعلياً مع هبة (حسب مركز الكلفة) — راجع شيت 'مطابقة حسب مركز الكلفة'.",
+        )
+    if ccs.get("unresolved_hiba_rows"):
+        msgs.append(
+            f"توجد {ccs['unresolved_hiba_rows']} حركة بملف هبة لها مركز كلفة لم نجد له أي صيدلية مطابقة بثقة بملف دواك — تحتاج مراجعة يدوية.",
+        )
     if ps.get("found_diff_date_count"):
         msgs.append(
             f"تم العثور على {ps['found_diff_date_count']} دفعة بنفس المبلغ عند الطرف الآخر لكن بتاريخ مختلف "
@@ -73,13 +87,33 @@ def run_view(request):
     if msgs:
         messages.warning(request, " ".join(msgs))
     else:
-        messages.success(request, "جميع الصيدليات متطابقة، ولم يتم العثور على أي فروقات في الدفعات.")
+        messages.success(request, "جميع الصيدليات متطابقة (داخلياً ومع هبة)، ولم يتم العثور على أي فروقات في الدفعات.")
 
     request.session[f"dawak_preview_{run.pk}"] = [
         {"code": p["code"], "name": p["name"], "total_debit": str(p["total_debit"]),
          "total_credit": str(p["total_credit"]), "difference": str(p["difference"]), "matched": p["matched"]}
         for p in result["pharmacies"]
     ]
+
+    STATUS_LABEL = {"matched": "مطابق مع هبة", "mismatched": "غير مطابق مع هبة", "no_hiba_data": "لا توجد حركات مقابلة عند هبة"}
+    if cost_centers:
+        request.session[f"dawak_cc_preview_{run.pk}"] = [
+            {
+                "code": r["code"], "name": r["name"], "status": STATUS_LABEL.get(r["status"], r["status"]),
+                "dawak_debit": str(r["dawak_debit"]), "dawak_credit": str(r["dawak_credit"]),
+                "hiba_debit": str(r["hiba_debit"]), "hiba_credit": str(r["hiba_credit"]),
+                "hiba_rows_count": r["hiba_rows_count"],
+                "diff_vs_hiba_debit": str(r["diff_vs_hiba_debit"]), "diff_vs_hiba_credit": str(r["diff_vs_hiba_credit"]),
+            }
+            for r in cost_centers["rows"]
+        ]
+        request.session[f"dawak_cc_unresolved_preview_{run.pk}"] = [
+            {"cost_center": e.get("cost_center", ""), "narration": e.get("narration", ""),
+             "debit": str(e.get("debit", 0)), "credit": str(e.get("credit", 0)),
+             "raw_date": e.get("raw_date", "")}
+            for e in cost_centers["unresolved"][:60]
+        ]
+
     def _entry_date_str(e):
         d = e.get("entry_date")
         return d.isoformat() if d else (e.get("raw_date") or "")
@@ -102,7 +136,12 @@ def result(request, pk):
     run = get_object_or_404(DawakCompareRun, pk=pk)
     preview = request.session.get(f"dawak_preview_{run.pk}", [])
     payments_preview = request.session.get(f"dawak_payments_preview_{run.pk}", [])
-    return render(request, "dawak_compare/result.html", {"run": run, "preview": preview, "payments_preview": payments_preview})
+    cc_preview = request.session.get(f"dawak_cc_preview_{run.pk}", [])
+    cc_unresolved_preview = request.session.get(f"dawak_cc_unresolved_preview_{run.pk}", [])
+    return render(request, "dawak_compare/result.html", {
+        "run": run, "preview": preview, "payments_preview": payments_preview,
+        "cc_preview": cc_preview, "cc_unresolved_preview": cc_unresolved_preview,
+    })
 
 
 @module_required("dawak_compare")

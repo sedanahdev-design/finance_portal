@@ -6,8 +6,8 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from commissions.engine import (
-    compute_company_breakdown, compute_rep_commissions,
-    parse_movement, parse_rates, parse_sanitizer_targets,
+    compute_company_breakdown, compute_rep_commissions, merge_additions,
+    parse_additions, parse_movement, parse_rates, parse_sanitizer_targets,
 )
 from commissions.excel_export import build_workbook
 from commissions.forms import CommissionUploadForm
@@ -41,6 +41,7 @@ def run_view(request):
         sales_rows = parse_movement(d["sales_file"])
         return_rows = parse_movement(d["returns_file"])
         sanitizer_targets = parse_sanitizer_targets(d["sanitizer_targets_file"]) if d.get("sanitizer_targets_file") else {}
+        additions = parse_additions(d["additions_file"]) if d.get("additions_file") else None
     except Exception as exc:  # noqa: BLE001
         messages.error(request, f"تعذّرت قراءة أحد الملفات: {exc}")
         log_action(request, AuditLog.Action.ERROR, str(exc), module_code="commissions")
@@ -60,12 +61,26 @@ def run_view(request):
         "unrated_companies_count": len(unrated),
     }
 
+    # ميزة "ملف الإضافات" (2026-09-27، اختيارية) — انظر توثيق الصيغة في
+    # commissions/engine.py (merge_additions).
+    merged = merge_additions(rep_commissions, additions) if additions is not None else None
+    additions_missing_count = additions_unmatched_count = 0
+    total_due = total_commission
+    total_net = total_commission
+    if merged is not None:
+        additions_missing_count = sum(1 for m in merged.values() if not m["has_addition_row"])
+        additions_unmatched_count = sum(1 for m in merged.values() if not m["has_sales"])
+        total_due = sum((m["due"] for m in merged.values()), Decimal("0"))
+        total_net = sum((m["net"] for m in merged.values()), Decimal("0"))
+
     run = CommissionRun.objects.create(
         created_by=request.user, reps_count=summary["reps_count"],
         total_sales=total_sales, total_commission=total_commission,
         unrated_companies_count=summary["unrated_companies_count"],
+        additions_used=merged is not None, total_due=total_due, total_net=total_net,
+        additions_missing_count=additions_missing_count, additions_unmatched_count=additions_unmatched_count,
     )
-    buf = build_workbook(rep_commissions, company_breakdown, summary)
+    buf = build_workbook(rep_commissions, company_breakdown, summary, merged=merged)
     run.result_file.save(f"عمولات_{run.pk}.xlsx", ContentFile(buf.read()), save=True)
 
     log_action(request, AuditLog.Action.RUN, f"عمولات #{run.pk}", module_code="commissions", meta={"run_id": run.pk})
@@ -73,6 +88,23 @@ def run_view(request):
         messages.warning(request, f"توجد {len(unrated)} شركة غير موجودة في جدول نسب العمولات، احتُسبت عمولتها صفراً — راجع شيت 'شركات بلا نسبة'.")
     else:
         messages.success(request, f"تم احتساب عمولات {summary['reps_count']} مندوب/كول سنتر بنجاح.")
+    if merged is not None:
+        messages.success(
+            request,
+            f"تم دمج ملف الإضافات — إجمالي المستحق {total_due:,.2f}، إجمالي الصافي (بعد خصم السلف) {total_net:,.2f}.",
+        )
+        if additions_missing_count:
+            messages.info(
+                request,
+                f"{additions_missing_count} مندوب له عمولة محسوبة بلا صف مطابق بملف الإضافات (احتُسبت إضافاته صفراً) "
+                f"— راجع شيت \"مندوبون بلا صف إضافات\".",
+            )
+        if additions_unmatched_count:
+            messages.warning(
+                request,
+                f"{additions_unmatched_count} اسم بملف الإضافات بلا مبيعات مطابقة هذا الشهر — راجع شيت "
+                f"\"أسماء بملف الإضافات غير مطابقة\" (تحقق من خطأ إملائي محتمل بالاسم).",
+            )
 
     preview = []
     for rep, data in sorted(rep_commissions.items())[:PREVIEW_LIMIT]:

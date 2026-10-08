@@ -19,6 +19,15 @@ class ReceivablesRun(models.Model):
     mismatched_groups = models.IntegerField(default=0)
     mismatched_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
 
+    # تصحيح 2026-09-29 (ميزة "مطابقة حسب الكشف + تفصيل حسب الشخص" الجديدة،
+    # طلب المستخدم الصريح): إحصاءات إضافية للتمييز بين المجموعات "الفردية"
+    # و"المشتركة" بين أكثر من موزّع، والمجموعات المرتبطة بالاسم فقط (بلا رقم
+    # كشف)، وعدد الأشخاص (الموزّعين) الظاهرين في الملف.
+    solo_mismatched_groups = models.IntegerField(default=0)
+    shared_mismatched_groups = models.IntegerField(default=0)
+    name_linked_groups = models.IntegerField(default=0)
+    persons_count = models.IntegerField(default=0)
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

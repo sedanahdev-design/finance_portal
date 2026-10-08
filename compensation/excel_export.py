@@ -79,7 +79,7 @@ def build_workbook(result, claims_table):
     ws0.title = "الملخص"
     ws0.sheet_view.rightToLeft = True
     ws0.append([
-        "المنهجية (إعادة بناء ثانية بطلب المستخدم — آخر تحديث 2026-08-31): تعبئة رقم الفاتورة "
+        "المنهجية (آخر تحديث 2026-09-26): تعبئة رقم الفاتورة "
         "الصفري من السطر السابق، ثم فلترة العروض المميزة فقط، ثم تجميع حسب (المادة × عرض المفرق) "
         "فقط (بلا اسم الصيدلية/الزبون إطلاقاً)، ثم داخل كل حزمة: إلغاء أزواج \"م. مبيع\"/المرتجعات "
         "المتطابقة (بنفس الكمية والهدايا، بلا اشتراط الزبون)، ثم دمج كل سطر كميته = صفر مع سطر آخر "
@@ -87,7 +87,10 @@ def build_workbook(result, claims_table):
         "= الكمية × (الصغير ÷ الكبير) من \"عرض المفرق\"، والصافي = الهدايا − ناتج المعادلة. "
         "الأسطر ذات الصافي السالب أو الصفري تُحذف بالكامل من الحساب (بطلب المستخدم الصريح، رغم "
         "تعارض جزئي موثَّق مع دليل مرجعي حي — انظر ملاحظة التحقق في compensation/engine.py). "
-        "المطالبة النهائية للحزمة = مجموع هدايا الأسطر المُدرَجة − مجموع ناتج معادلتها."
+        "المطالبة النهائية للحزمة = مجموع هدايا الأسطر المُدرَجة − مجموع ناتج معادلتها. "
+        "أما الحزم بلا قيمة \"عرض مفرق\" صالحة (تعذّر تطبيق المعادلة عليها) فمطالبتها = مجموع كل "
+        "هدايا أسطرها مباشرة بلا طرح أي معادلة (بطلب المستخدم الصريح 2026-09-26) — راجع شيت "
+        "\"حزم بلا عرض مفرق صالح\"."
     ])
     ws0.append([])
     _header(ws0, ["إجمالي سطور الحركة الخام", "أسطر بعد فلتر العروض المميزة",
@@ -160,16 +163,22 @@ def build_workbook(result, claims_table):
         material_qty = material_gifts = material_formula = material_claim = 0
         for g in sorted(groups, key=lambda g: g.retail_offer):
             if not g.eligible:
+                # تعديل 2026-09-26: لم تعد هذه الحزم تُستبعَد من التفصيل/
+                # الإجمالي — لها الآن مطالبة محتسبة (مجموع الهدايا مباشرة،
+                # بلا معادلة). تُطبع لافتة توضيحية ثم تفصيل أسطرها وصف
+                # إجماليها كأي حزمة أخرى (انظر compute_bucket في engine.py).
                 ws.append([f"⚠ حزمة بعرض مفرق '{g.retail_offer}' — {g.note}"] + [""] * (len(ROW_DETAIL_HEADERS) - 1))
                 for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
                     ws.cell(row=ws.max_row, column=c).fill = FLAG_FILL
-                continue
             for rc in g.row_calcs:
                 ws.append(_row_calc_values(rc))
                 if not rc.included:
                     for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
                         ws.cell(row=ws.max_row, column=c).fill = EXCLUDED_ROW_FILL
-            total_row = [f"إجمالي عرض المفرق '{g.retail_offer}'", "", "", "",
+            total_label = f"إجمالي عرض المفرق '{g.retail_offer}'"
+            if not g.eligible:
+                total_label += " (بلا معادلة — مجموع الهدايا مباشرة)"
+            total_row = [total_label, "", "", "",
                          float(g.qty), float(g.gifts), float(g.formula_result), float(g.claim_value), "", ""]
             ws.append(total_row)
             for c in range(1, len(ROW_DETAIL_HEADERS) + 1):
@@ -181,8 +190,7 @@ def build_workbook(result, claims_table):
             material_formula += (g.formula_result or 0)
             material_claim += (g.claim_value or 0)
 
-        eligible_count = sum(1 for g in groups if g.eligible)
-        if eligible_count > 1:
+        if len(groups) > 1:
             ws.append(["إجمالي المادة (كل حزم عروض المفرق)", "", "", "",
                        float(material_qty), float(material_gifts), float(material_formula),
                        float(material_claim), "", ""])
@@ -198,8 +206,9 @@ def build_workbook(result, claims_table):
         ws_neg.sheet_view.rightToLeft = True
         ws_neg.append([
             "هذه حزم (مادة × عرض مفرق) لا تملك قيمة \"عرض مفرق\" صالحة (فارغة/\"-\"/\"0\" أو بصيغة "
-            "غير مفهومة)، فتعذّر تطبيق المعادلة عليها — الكمية والهدايا ظاهرة كاملة (خام، بلا حذف "
-            "أسطر سالبة/صفرية لعدم وجود معادلة أصلاً)، لكن بلا قيمة مطالبة. راجعها يدوياً."
+            "غير مفهومة)، فتعذّر تطبيق المعادلة عليها. بطلب المستخدم الصريح 2026-09-26: قيمة "
+            "مطالبتها = مجموع كل هدايا أسطر الحزمة مباشرة (خام، بلا حذف أسطر سالبة/صفرية لعدم وجود "
+            "معادلة أصلاً، وبلا أي طرح لناتج معادلة) — لم تعد فارغة. هذا الشيت يبقى للمرجعية والتدقيق."
         ])
         _header(ws_neg, GROUP_HEADERS)
         for g in result["ineligible_groups"]:

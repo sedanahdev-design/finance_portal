@@ -55,7 +55,7 @@ def run_view(request):
     request.session[f"extcomm_preview_{run.pk}"] = [
         {"name": d["name"], "opening_balance": str(d["opening_balance"]), "total_debit": str(d["total_debit"]),
          "total_credit": str(d["total_credit"]), "total_returns": str(d["total_returns"]),
-         "total_sales_excluded": str(d["total_sales_excluded"]), "commission_base": str(d["commission_base"]),
+         "total_payments": str(d["total_payments"]), "commission_base": str(d["commission_base"]),
          "commission": str(d["commission"]), "closing_balance": str(d["closing_balance"])}
         for d in distributors
     ]

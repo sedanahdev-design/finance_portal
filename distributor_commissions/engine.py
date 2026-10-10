@@ -212,8 +212,39 @@ NON_PERSON_MARKERS = {"بيد المندوب", "درعا", "ارض مستودع"
 # أسماء بديلة/غير حقيقية تظهر أحياناً في عمود الموزع بدل الاسم الفعلي؛
 # الاسم الحقيقي يُستخرج حصراً من نص البيان ("بيد السيد ...") عند توفره.
 PLACEHOLDER_NAMES = {"عبد الرزاق خرمة", "محمد اغا"}
-# سائقو دراجات مسجَّلون أحياناً في عمود سائق السيارة سهواً — يُعاملان دوماً كفئة دراجة.
+# سائقو دراجات مسجَّلون أحياناً في عمود سائق السيارة سهواً — يُعاملان دوماً كفئة دراجة
+# تلقائياً (بلا أي قرار إداري صريح لهذا التشغيل — راجع تصحيح 2026-10-10 أدناه).
 MOTO_NAME_OVERRIDES = {"كريم هاشم", "مراد علوش"}
+# تصحيح 2026-10-10 (طلب المستخدم الصريح: "هدول الاثنين هنن موزعين دراجة دائماً
+# وأوقات الادارة ممكن تقرر تخلي واحد فيهم هاد الشهر يكون موزع سيارة ... بدي
+# يكون عندي اسم هالموزعين الاثنين بصفحة عمولات الموزعين الداخليين ويكون في
+# عنا لكل واحد منهم اختيارين واحد سائق دراجة وواحد سائق سيارة ... يحتسبلو كل
+# الحالات ان كانت افرادية او مع حدا واحد او تنين على انو سائق دراجة اذا تم
+# اختيارها او سائق سيارة اذا تم اختيارها"):
+#
+# المشكلة المحدَّدة التي أبلغ عنها المستخدم: حركة فيها مراد علوش بعمود "موزع
+# السائق" (سيارة) وكريم هاشم بعمود "موزع دراجة" معاً على نفس الحركة (شخصان) —
+# قبل هذا التصحيح كانت النسبة تُحسَم حصراً من العمود الخام الفعلي لكل مشارك
+# (راجع _pair_rate الأصلي 2026-09-28)، فتُعامَل كزوج "مختلط" عادي (0.25%
+# لكل منهما) — بينما كلا الشخصين "بالأصل" سائقا دراجة هذا الشهر (العمود كان
+# خطأ إدخال لا قراراً إدارياً حقيقياً بتبديل فئة مراد علوش)، فالنسبة الصحيحة
+# المطلوبة 0.125% لكل منهما (دراجة+دراجة).
+#
+# الحل: حقلا اختيار جديدان بصفحة عمولة الموزعين الداخليين (DistributorTierOverrideForm
+# بـ forms.py) لـ"مراد علوش" و"كريم هاشم" تحديداً، بثلاث قيم ممكنة لكل تشغيل:
+#   - "auto" (تلقائي، الافتراضي): السلوك القديم بلا أي تغيير — منفرد/مجموعة
+#     تُحسَم دوماً كـ"دراجة" (كما كانت)، وحالة "شخصان" تحديداً تبقى تُحسَم من
+#     العمود الخام الفعلي (لا تتأثر، تماماً كما تحقّقنا منه رقمياً سابقاً مقابل
+#     شهر مرجعي كامل — لا نريد كسر تلك النتيجة المؤكَّدة لأي تشغيل لم يُطلب له
+#     تدخّل إداري صريح).
+#   - "moto" / "car": قرار إداري صريح لهذا التشغيل تحديداً — يُطبَّق على **كل**
+#     حالات هذا الاسم بهذا التشغيل (منفرد/شخصان/مجموعة) بصرف النظر عن العمود
+#     الخام الذي أُدخل فيه فعلياً بكل حركة على حدة، بما فيها حالة "شخصان" التي
+#     كانت سابقاً الاستثناء الوحيد المعتمد على العمود الخام. هذا بالضبط ما
+#     يحل حالة مراد علوش+كريم هاشم: يختار الموظف "دراجة" لكليهما هذا الشهر
+#     فتصبح حركتهما المشتركة 0.125% لكل منهما بدل 0.25%.
+# راجع _manual_tier_override وPARTICIPANT.tier_forced وتعديلات _pair_rate/
+# _return_rate أدناه للتفاصيل التقنية الكاملة.
 
 # --- إصلاح: "لا تخصم على أحد" يجب أن يصفّر العمولة لا أن يُتجاهَل ---
 # وردت هذه الملاحظة فعلياً 367 مرة في عمود "ملاحظات" بشيت "مرتجعات" (بصيغة
@@ -511,6 +542,11 @@ class Participant:
     # NameResolver.resolve_with_kind). يُستخدم فقط لتلوين/فرز حالات تحتاج
     # تأكيداً يدوياً بالتصدير — لا يغيّر الاحتساب إطلاقاً.
     match_kind: str = "column"
+    # تصحيح 2026-10-10: True فقط حين يحمل هذا المشارك قراراً إدارياً صريحاً
+    # (مراد علوش/كريم هاشم) لهذا التشغيل تحديداً (راجع توثيق MOTO_NAME_OVERRIDES
+    # و_manual_tier_override أعلى الملف) — يجعل حالة "شخصان" (_pair_rate/
+    # _return_rate) تستخدم tier المفروض مباشرة بدل العمود الخام الفعلي.
+    tier_forced: bool = False
 
 
 @dataclass
@@ -593,13 +629,45 @@ def _extract_biyad_names(bayan: str, resolver: NameResolver) -> list[tuple[str, 
     return result
 
 
-def _resolve_tier_and_source(name: str, role_col: Optional[str]) -> tuple[str, str]:
-    """يحدد فئة الموزع (سيارة/دراجة) ومصدر هذا التحديد. لا يقرأ نص البيان
-    إطلاقاً — فقط اسم المشارك واسم عمود DIST_COLS الذي ورد فيه (role_col).
+def _manual_tier_override(name: str, tier_overrides: Optional[dict]) -> Optional[tuple[str, str, bool]]:
+    """تصحيح 2026-10-10 (راجع توثيق MOTO_NAME_OVERRIDES أعلى الملف للطلب
+    الكامل) — يرجع (tier, tier_source, forced) إن كان name أحد الأسماء
+    المسجَّلة (كريم هاشم/مراد علوش)، وإلا None (أي اسم عادي لا صلة له بهذا
+    الاستثناء إطلاقاً).
+
+    tier_overrides: قاموس اختياري {الاسم: "car"|"moto"} يمثّل قرار إدارياً
+    صريحاً لهذا التشغيل تحديداً (قادم من حقلي الاختيار الجديدين بالصفحة) —
+    غيابه أو غياب الاسم منه يعني "تلقائي" (auto): لا قرار إداري، فالسلوك
+    القديم يبقى كما كان بالكامل.
+
+    forced=True فقط حين وُجد قرار إداري صريح؛ يُستخدم في _pair_rate/
+    _return_rate لتجاوز العمود الخام الفعلي بحالة "شخصان" تحديداً (خلاف
+    الوضع التلقائي الذي يبقي ذاك القرار للعمود الخام كما تحقّقنا منه رقمياً
+    سابقاً — راجع توثيق _pair_rate الأصلي)."""
+    if name not in MOTO_NAME_OVERRIDES:
+        return None
+    choice = (tier_overrides or {}).get(name, "auto")
+    if choice in ("car", "moto"):
+        label = "سيارة" if choice == "car" else "دراجة"
+        return (
+            choice,
+            f"قرار إداري صريح لهذا التشغيل: {label} (يُطبَّق على كل حالات هذا الموزع "
+            f"بهذا التشغيل — منفرد/شخصان/مجموعة — بصرف النظر عن العمود الخام الفعلي)",
+            True,
+        )
+    return "moto", "استثناء اسم مسجَّل (دراجة دائماً، تلقائي بلا قرار إداري لهذا التشغيل)", False
+
+
+def _resolve_tier_and_source(name: str, role_col: Optional[str],
+                              tier_overrides: Optional[dict] = None) -> tuple[str, str, bool]:
+    """يحدد فئة الموزع (سيارة/دراجة) ومصدر هذا التحديد وهل هي مفروضة إدارياً
+    (tier_forced — راجع _manual_tier_override). لا يقرأ نص البيان إطلاقاً —
+    فقط اسم المشارك واسم عمود DIST_COLS الذي ورد فيه (role_col).
 
     ترتيب الأولوية:
-      1) استثناء اسم مسجَّل (كريم هاشم/مراد علوش) — يبقى فوق كل شيء لأنه موثّق
-         بـ 78+ حركة فعلية بلا استثناء معاكس (راجع توثيق أعلى الملف).
+      1) قرار إداري صريح لهذا التشغيل لاسم مسجَّل (كريم هاشم/مراد علوش)، وإلا
+         استثناء الاسم المسجَّل التلقائي (دراجة دائماً) — يبقى فوق كل شيء لأنه
+         موثّق بـ 78+ حركة فعلية بلا استثناء معاكس (راجع توثيق أعلى الملف).
       2) عضوية عمود DIST_COLS الذي ورد فيه اسم المشارك فعلياً في هذا الصف —
          هذا هو المصدر الحقيقي والمؤكد صراحة من المستخدم ("العمود الذي يحمل
          الاسم في أعلى الصف"): موزع السائق/مساعد/استثناء -> فئة سيارة،
@@ -607,11 +675,12 @@ def _resolve_tier_and_source(name: str, role_col: Optional[str]) -> tuple[str, s
          المُستخرَجين من "بيد السيد" حين لا عمود خام لهم أصلاً — عندها القرار
          يقع على resolve_tier (تكرار عمود الشهر) في المستدعي، وليس هنا.
     """
-    if name in MOTO_NAME_OVERRIDES:
-        return "moto", "استثناء اسم مسجَّل (دراجة دائماً)"
+    override = _manual_tier_override(name, tier_overrides)
+    if override is not None:
+        return override
     if role_col is None:
-        return "car", "افتراضي مؤقت (بيد السيد بلا تكرار شهر معروف)"
-    return ("car" if role_col in CAR_TIER_COLS else "moto"), "عمود الموزع (DIST_COLS) — المصدر المؤكد"
+        return "car", "افتراضي مؤقت (بيد السيد بلا تكرار شهر معروف)", False
+    return ("car" if role_col in CAR_TIER_COLS else "moto"), "عمود الموزع (DIST_COLS) — المصدر المؤكد", False
 
 
 def _build_return_source(ws, label: str = "مرتجعات") -> dict:
@@ -651,9 +720,17 @@ def _build_return_source(ws, label: str = "مرتجعات") -> dict:
     }
 
 
-def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResult:
+def parse_distributor_file(file_obj, redistribution_file_obj=None, tier_overrides: Optional[dict] = None) -> ParseResult:
     """يقرأ شيتي 'دفتر الأستاذ' و'مرتجعات' من نفس الملف المرفوع، ويحسب
     قائمة مشاركين موثوقة لكل حركة (مع تفعيل آلية 'بيد السيد' عند اللزوم).
+
+    تصحيح 2026-10-10 (طلب المستخدم الصريح — راجع التوثيق الكامل أعلى تعريف
+    MOTO_NAME_OVERRIDES): tier_overrides معامل اختياري {"مراد علوش": "car"|
+    "moto", "كريم هاشم": "car"|"moto"} يمثّل قراراً إدارياً صريحاً لهذا
+    التشغيل تحديداً (من حقلي الاختيار الجديدين بالصفحة)، يُطبَّق على كل حالات
+    الاسم المذكور بهذا التشغيل (منفرد/شخصان/مجموعة) بصرف النظر عن العمود
+    الخام الفعلي. اسم غير موجود بالقاموس (أو القاموس None بالكامل) = "تلقائي"
+    (auto)، أي السلوك القديم كما كان بالضبط بلا أي تغيير.
 
     تصحيح 2026-10-08 (الثاني، طلب المستخدم الصريح: "بدي منك تضيفو ك ميزة
     اختيارية ضمن خدمة عمولة موزعين داخليين وتتعامل مع هالملف معاملة
@@ -762,13 +839,6 @@ def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResul
                         resolver.observe(v)
     resolver.finalize()
 
-    def infer_tier(name: str) -> Optional[str]:
-        if name in MOTO_NAME_OVERRIDES:
-            return "moto"
-        # ابحث عن الفئة الغالبة من الأعمدة الخام التي رصدها resolver
-        # (نعيد فحص الأعمدة الخام هنا لأن NameResolver لا يحتفظ بالعمود)
-        return _tier_freq.get(name)
-
     # فئة كل اسم بحسب العمود الأكثر تكراراً الذي ورد فيه (باستثناء حركات "بيد السيد"
     # التي تحمل اسماً بديلاً/فارغاً وقد تُضلّل الإحصاء)
     _tier_counts: dict[str, Counter] = defaultdict(Counter)
@@ -794,8 +864,13 @@ def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResul
         _tier_freq.setdefault(nm, tier)
 
     def resolve_tier(name: str) -> Optional[str]:
-        if name in MOTO_NAME_OVERRIDES:
-            return "moto"
+        # تصحيح 2026-10-10: فرع MOTO_NAME_OVERRIDES هنا أصلاً غير قابل للوصول
+        # (المستدعي الوحيد أدناه يستثني هذه الأسماء قبل الاستدعاء)، أُبقي عليه
+        # دفاعياً فقط ليعكس نفس قرار _manual_tier_override لو استُدعيت الدالة
+        # مستقبلاً من موضع آخر.
+        override = _manual_tier_override(name, tier_overrides)
+        if override is not None:
+            return override[0]
         return _tier_freq.get(name)
 
     # -------------------------------- تحصيل نقدي (دفتر الأستاذ) --------------------------------
@@ -857,9 +932,10 @@ def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResul
             if nm is None:
                 flagged_rows.append({"reason": "اسم غير معروف", "bayan": bayan, "debit": debit, "name": raw_nm})
                 continue
-            tier, tier_source = _resolve_tier_and_source(nm, rc)
+            tier, tier_source, forced = _resolve_tier_and_source(nm, rc, tier_overrides)
             tier_source_counts[tier_source] += 1
-            raw_participants.append(Participant(name=nm, tier=tier, role_col=rc, tier_source=tier_source))
+            raw_participants.append(Participant(name=nm, tier=tier, role_col=rc, tier_source=tier_source,
+                                                  tier_forced=forced))
 
         # إصلاح 2026-08-31: آلية "بيد السيد" يجب أن تُفعَّل فقط حين توجد فعلاً
         # فجوة تحتاج سدّاً من البيان — إما (أ) كل أعمدة DIST_COLS فارغة تماماً
@@ -890,19 +966,20 @@ def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResul
             extra_names = [(n, k) for n, k in biyad_names if n not in present_names]
 
         for nm, match_kind in extra_names:
-            if nm in MOTO_NAME_OVERRIDES:
-                tier, tier_source = "moto", "استثناء اسم مسجَّل (دراجة دائماً)"
+            override = _manual_tier_override(nm, tier_overrides)
+            if override is not None:
+                tier, tier_source, forced = override
             else:
                 # لا عمود خام لهذا المشارك (استُخرج اسمه من البيان فقط) — الفئة
                 # هنا تُستنتج من العمود الذي غلب على اسمه في بقية حركات الشهر
                 # (resolve_tier)، وليس من نص البيان نفسه بأي شكل.
-                tier, tier_source = resolve_tier(nm), "تكرار الشهر (بيد السيد، بلا عمود خام لهذا المشارك)"
+                tier, tier_source, forced = resolve_tier(nm), "تكرار الشهر (بيد السيد، بلا عمود خام لهذا المشارك)", False
             if tier is None:
                 flagged_rows.append({"reason": "فئة غير معروفة (بيد السيد)", "bayan": bayan, "debit": debit, "name": nm})
                 continue
             tier_source_counts[tier_source] += 1
             raw_participants.append(Participant(name=nm, tier=tier, role_col=None, tier_source=tier_source,
-                                                  match_kind=match_kind))
+                                                  match_kind=match_kind, tier_forced=forced))
 
         # تصحيح 2026-09-28 (الحالة الأولى، طلب المستخدم الصريح): مشارك
         # استُخرج اسمه من البيان بمطابقة تقريبية فقط (كنية/خطأ إملائي طفيف،
@@ -978,9 +1055,10 @@ def parse_distributor_file(file_obj, redistribution_file_obj=None) -> ParseResul
                 if nm is None:
                     flagged_rows.append({"reason": "اسم غير معروف (مرتجع)", "bayan": bayan, "debit": amt, "name": raw_nm})
                     continue
-                tier, tier_source = _resolve_tier_and_source(nm, rc)
+                tier, tier_source, forced = _resolve_tier_and_source(nm, rc, tier_overrides)
                 tier_source_counts[tier_source] += 1
-                parts.append(Participant(name=nm, tier=tier, role_col=rc, tier_source=tier_source))
+                parts.append(Participant(name=nm, tier=tier, role_col=rc, tier_source=tier_source,
+                                           tier_forced=forced))
             if not parts:
                 # تصحيح 2026-09-28: نفس إصلاح الحالة الثانية أعلاه (تحصيل
                 # نقدي)، مطبَّق هنا للمرتجعات أيضاً للاتساق — حركة مرتجع بلا
@@ -1057,10 +1135,33 @@ def _pair_rate(parts: list) -> Decimal:
     بعمود "موزع دراجة" مع يوسف شروف بعمود "موزع دراجة 2") تكون النسبة
     0.125%. مشارك مستخرَج من البيان بلا عمود خام (role_col=None) لا يُعامَل
     كزوج دراجتين هنا لعدم وجود دليل مرجعي على ذلك — يبقى على 0.25%
-    الافتراضية."""
-    if all(getattr(p, "role_col", None) in MOTO_TIER_COLS for p in parts):
+    الافتراضية.
+
+    تصحيح 2026-10-10 (طلب المستخدم الصريح — حالة مراد علوش [عمود سائق سيارة]
+    + كريم هاشم [عمود موزع دراجة] معاً على حركة واحدة، وكلاهما "بالأصل سائقا
+    دراجة" هذا الشهر فعلياً حسب تأكيد الإدارة، لا 0.25% التي احتسبها التطبيق):
+    حين يحمل أحد المشاركين (أو كلاهما) قراراً إدارياً صريحاً لهذا التشغيل
+    (p.tier_forced=True، عبر _manual_tier_override) يُستخدم p.tier المفروض
+    مباشرة لهذا الشخص بدل عموده الخام — راجع _effective_pair_moto أدناه.
+    بلا أي قرار إداري (الوضع التلقائي، كما كان قبل هذا التصحيح بالضبط) يبقى
+    الحسم حصراً من العمود الخام كما هو موثّق أعلاه، فهذا التصحيح لا يغيّر أي
+    نتيجة محسوبة سابقاً لم يُطلب لها تدخّل إداري صريح."""
+    if all(_effective_pair_moto(p) for p in parts):
         return RATE_PAIR_MOTO_MOTO
     return RATE_PAIR
+
+
+def _effective_pair_moto(p) -> bool:
+    """يُستخدم فقط ضمن _pair_rate/_return_rate لتحديد هل مشارك واحد ضمن حركة
+    "شخصان" يُعتبر "دراجة" لأغراض تنصيف زوج دراجة+دراجة. تصحيح 2026-10-10:
+    إن حمل قراراً إدارياً صريحاً لهذا التشغيل (tier_forced) يُستخدم tier
+    المفروض مباشرة (متجاوزاً العمود الخام كلياً) — هذا بالضبط ما طلبه
+    المستخدم: "يحتسبلو كل الحالات ... على انو سائق دراجة اذا تم اختيارها
+    او سائق سيارة اذا تم اختيارها"، شاملاً حالة "شخصان". بخلاف ذلك (تلقائي،
+    بلا قرار إداري) يبقى الحسم حصراً من العمود الخام الفعلي كما كان."""
+    if getattr(p, "tier_forced", False):
+        return p.tier == "moto"
+    return getattr(p, "role_col", None) in MOTO_TIER_COLS
 
 
 def compute_collection_commission(collection_rows: list[LedgerRow]) -> dict[str, Decimal]:
@@ -1106,8 +1207,12 @@ def _return_rate(parts: list) -> Decimal:
     عمودا سيارة) فتبقى 0.5% كاملة لكل منهما كالسابق (تحقّق مباشر أيضاً من
     "تقرير": حركة مرتجع بسام+مراد بقيمة 3877.48 أعطت -19.3874 لكل منهما،
     أي 3877.48×0.5% كاملة). القاعدة هنا تطابق حرفياً _pair_rate أعلاه، لكنها
-    مُطبَّقة على RETURN_RATE بدل RATE_PAIR."""
-    if len(parts) == 2 and all(getattr(p, "role_col", None) in MOTO_TIER_COLS for p in parts):
+    مُطبَّقة على RETURN_RATE بدل RATE_PAIR.
+
+    تصحيح 2026-10-10: نفس منطق _effective_pair_moto أعلاه (قرار إداري صريح
+    لهذا التشغيل يتجاوز العمود الخام لمراد علوش/كريم هاشم تحديداً؛ بلا قرار
+    إداري يبقى الحسم من العمود الخام كما كان)."""
+    if len(parts) == 2 and all(_effective_pair_moto(p) for p in parts):
         return RETURN_RATE / Decimal(2)
     return RETURN_RATE
 

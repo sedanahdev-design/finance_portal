@@ -43,6 +43,16 @@ class DistributorCommissionRun(models.Model):
     redistribution_file_used = models.BooleanField(default=False)
     redistribution_file_name = models.CharField(max_length=255, blank=True)
 
+    # ميزة اختيارية جديدة 2026-10-10 (طلب المستخدم الصريح) — القرار الإداري
+    # الصريح (إن وُجد) لهذا التشغيل تحديداً لـ"مراد علوش"/"كريم هاشم" (راجع
+    # MOTO_NAME_OVERRIDES وتوثيق _manual_tier_override بـ engine.py). القيمة
+    # "auto" تعني لا قرار إداري (السلوك التلقائي القديم)؛ "moto"/"car" تعني
+    # قراراً صريحاً طُبِّق على كل حالات ذاك الاسم بهذا التشغيل. تُحفَظ هنا
+    # (بدل الاستنتاج) ليبقى القرار المُطبَّق فعلياً مرئياً لاحقاً عند مراجعة
+    # أي تشغيل سابق، لا مخفياً صامتاً.
+    murad_alloush_tier = models.CharField(max_length=10, default="auto")
+    kareem_hashem_tier = models.CharField(max_length=10, default="auto")
+
     result_file = models.FileField(upload_to=upload_path, null=True, blank=True)
 
     class Meta:

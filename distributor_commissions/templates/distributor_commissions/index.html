@@ -23,6 +23,7 @@
     <li><strong>حركات بلا أي موزع معروف (جديد 2026-09-28):</strong> حركة تحصيل أو مرتجع لا يوجد لها أي اسم معروف إطلاقاً — لا بعمود موزع خام ولا حتى بمطابقة تقريبية من البيان — لم تعد تختفي صامتة؛ تظهر الآن <strong>باللون الأحمر</strong> في شيت مخصص «حركات بلا أي موزع معروف» بلا أي عمولة محتسَبة لها، لتحديدها واحتسابها يدوياً.</li>
     <li><strong>تفصيل كل موزع حسب الدور (جديد 2026-09-28):</strong> شيت «تفصيل كل موزع حسب الدور» يعرض لكل موزع إجمالي المبلغ والعمولة والنسبة الفعلية لكل «حالة» عمل فعلية (سائق السيارة/مساعد/سائق الدراجة/دراجة 2/استثناء/من نص البيان) — بالإضافة إلى (وليس بديلاً عن) شيت «تفصيل كل موزع حسب الحالة» الموجود مسبقاً (منفرد/مع شخص آخر/مجموعة، وهو بُعد مختلف تماماً: عدد المشاركين لا دور كل منهم).</li>
     <li><strong>ملف إعادة توزيع الفواتير المستقل (ميزة اختيارية جديدة 2026-10-08):</strong> إذا توصلكم ملف «حركة إجمالي الفواتير» / إعادة توزيع بشكل مستقل (وليس كشيت ضمن ملف دفتر الأستاذ)، يمكن رفعه بالحقل الثاني أدناه — ويُعامَل تماماً كمعاملة المرتجعات: خصم ثابت 0.5% من كل مشارك فيه. <strong class="text-danger">تنبيه:</strong> إن كان ملف دفتر الأستاذ نفسه يحتوي أصلاً شيت «اعادة توزيع» لنفس الشهر، فلا ترفعوا هذا الملف المستقل أيضاً لنفس الشهر — سيُخصَم مرتين (ازدواج). ارفعوه فقط حين تكون بيانات إعادة التوزيع متوفرة كملف مستقل بدون أن تكون مضمَّنة بالفعل داخل ملف دفتر الأستاذ.</li>
+    <li><strong>نوع مراد علوش/كريم هاشم لهذا التشغيل (ميزة اختيارية جديدة 2026-10-10):</strong> هذان الموزعان سائقا دراجة دائماً تلقائياً (منفرد/مع شخص آخر/مجموعة). عند اختيار «تلقائي» يبقى هذا كما هو، وحالة «شخصان» تحديداً تُحسَم من العمود الذي أُدخل فيه الاسم فعلياً بكل حركة. أما حين تقرر الإدارة صراحة تبديل أحدهما لسائق سيارة (أو تثبيته سائق دراجة بصرف النظر عن أي خطأ إدخال بالعمود) <strong>هذا الشهر تحديداً</strong>، اختاروا ذلك من القائمتين أدناه — سيُطبَّق الاختيار على <strong>كل</strong> حالات ذاك الموزع بهذا التشغيل (منفرد/شخصان/مجموعة)، بما فيها حالة «شخصان» التي كانت سابقاً تُحسَم من العمود الخام فقط بصرف النظر عن أي استثناء اسم.</li>
   </ul>
 </div>
 
@@ -39,6 +40,14 @@
         {{ form.redistribution_file }}
         <div class="form-text">اختياري — لا ترفعوه إذا كان ملف دفتر الأستاذ أعلاه يحوي أصلاً شيت «اعادة توزيع» لنفس الشهر (تجنباً للازدواج).</div>
       </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.murad_alloush_tier.label }}</label>
+        {{ form.murad_alloush_tier }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">{{ form.kareem_hashem_tier.label }}</label>
+        {{ form.kareem_hashem_tier }}
+      </div>
     </div>
     <button type="submit" class="btn btn-primary-soft mt-4"><i class="bi bi-play-fill"></i> احتساب عمولة التحصيل</button>
   </form>
@@ -47,7 +56,7 @@
 <h5 class="fw-bold mb-3">عمليات سابقة</h5>
 <div class="table-wrap">
   <table class="table-clean">
-    <thead><tr><th>#</th><th>التاريخ</th><th>عدد الموزعين</th><th>حركات نقدية</th><th>حركات مرتجع</th><th>للمراجعة</th><th>مطابقة تقريبية</th><th>بلا موزع معروف</th><th>ملف إعادة توزيع</th><th>الصافي</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>التاريخ</th><th>عدد الموزعين</th><th>حركات نقدية</th><th>حركات مرتجع</th><th>للمراجعة</th><th>مطابقة تقريبية</th><th>بلا موزع معروف</th><th>ملف إعادة توزيع</th><th>مراد علوش</th><th>كريم هاشم</th><th>الصافي</th><th></th></tr></thead>
     <tbody>
       {% for r in runs %}
       <tr>
@@ -55,11 +64,13 @@
         <td>{{ r.rows_count }}</td><td>{{ r.return_rows_count }}</td><td>{{ r.flagged_rows_count }}</td>
         <td>{{ r.fuzzy_biyad_rows_count }}</td><td>{{ r.unresolved_rows_count }}</td>
         <td>{% if r.redistribution_file_used %}<span title="{{ r.redistribution_file_name }}">✓</span>{% else %}—{% endif %}</td>
+        <td>{% if r.murad_alloush_tier == "car" %}سيارة{% elif r.murad_alloush_tier == "moto" %}دراجة{% else %}تلقائي{% endif %}</td>
+        <td>{% if r.kareem_hashem_tier == "car" %}سيارة{% elif r.kareem_hashem_tier == "moto" %}دراجة{% else %}تلقائي{% endif %}</td>
         <td>{{ r.total_commission|floatformat:2 }}</td>
         <td><a href="{% url 'distributor_commissions:result' r.pk %}" class="btn btn-sm btn-outline-soft">عرض</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="11" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
+      <tr><td colspan="13" class="text-center text-muted py-4">لا توجد عمليات بعد.</td></tr>
       {% endfor %}
     </tbody>
   </table>

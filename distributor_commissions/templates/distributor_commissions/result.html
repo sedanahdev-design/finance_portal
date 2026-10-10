@@ -4,7 +4,7 @@
 {% block page_title %}نتيجة عمولة التحصيل #{{ run.pk }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h2>نتيجة عمولة تحصيل الموزعين الداخليين</h2><p>{{ run.ledger_file_name }} — {{ run.created_at|date:"Y-m-d H:i" }}{% if run.redistribution_file_used %} <span class="badge bg-info-subtle text-info-emphasis">+ ملف إعادة توزيع مستقل: {{ run.redistribution_file_name }}</span>{% endif %}</p></div>
+  <div><h2>نتيجة عمولة تحصيل الموزعين الداخليين</h2><p>{{ run.ledger_file_name }} — {{ run.created_at|date:"Y-m-d H:i" }}{% if run.redistribution_file_used %} <span class="badge bg-info-subtle text-info-emphasis">+ ملف إعادة توزيع مستقل: {{ run.redistribution_file_name }}</span>{% endif %}{% if run.murad_alloush_tier != "auto" %} <span class="badge bg-warning-subtle text-warning-emphasis">مراد علوش: {% if run.murad_alloush_tier == "car" %}سيارة{% else %}دراجة{% endif %} (قرار إداري لهذا التشغيل)</span>{% endif %}{% if run.kareem_hashem_tier != "auto" %} <span class="badge bg-warning-subtle text-warning-emphasis">كريم هاشم: {% if run.kareem_hashem_tier == "car" %}سيارة{% else %}دراجة{% endif %} (قرار إداري لهذا التشغيل)</span>{% endif %}</p></div>
   <a href="{% url 'distributor_commissions:download' run.pk %}" class="btn btn-primary-soft"><i class="bi bi-download"></i> تنزيل الملف الكامل</a>
 </div>
 

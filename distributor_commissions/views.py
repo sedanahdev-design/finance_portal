@@ -42,8 +42,19 @@ def run_view(request):
 
     ledger_f = form.cleaned_data["ledger_file"]
     redistribution_f = form.cleaned_data.get("redistribution_file")
+    # ميزة 2026-10-10 (طلب المستخدم الصريح) — قرار إداري صريح اختياري لهذا
+    # التشغيل لـ"مراد علوش"/"كريم هاشم" (راجع توثيق MOTO_NAME_OVERRIDES
+    # وتوثيق tier_overrides بـ engine.py). "auto" = لا قرار (لا يُضاف للقاموس).
+    murad_tier = form.cleaned_data.get("murad_alloush_tier") or "auto"
+    kareem_tier = form.cleaned_data.get("kareem_hashem_tier") or "auto"
+    tier_overrides = {}
+    if murad_tier != "auto":
+        tier_overrides["مراد علوش"] = murad_tier
+    if kareem_tier != "auto":
+        tier_overrides["كريم هاشم"] = kareem_tier
     try:
-        parsed = parse_distributor_file(ledger_f, redistribution_file_obj=redistribution_f)
+        parsed = parse_distributor_file(ledger_f, redistribution_file_obj=redistribution_f,
+                                         tier_overrides=tier_overrides)
     except Exception as exc:  # noqa: BLE001
         messages.error(request, f"تعذّرت قراءة الملف: {exc}")
         log_action(request, AuditLog.Action.ERROR, str(exc), module_code="distributor_commissions")
@@ -78,11 +89,15 @@ def run_view(request):
         unresolved_rows_count=unresolved_rows_count,
         redistribution_file_used=bool(redistribution_f),
         redistribution_file_name=redistribution_f.name if redistribution_f else "",
+        murad_alloush_tier=murad_tier,
+        kareem_hashem_tier=kareem_tier,
     )
     buf = build_workbook(
         parsed, result, summary,
         {"ledger_file_name": ledger_f.name,
-         "redistribution_file_name": redistribution_f.name if redistribution_f else ""},
+         "redistribution_file_name": redistribution_f.name if redistribution_f else "",
+         "murad_alloush_tier": murad_tier,
+         "kareem_hashem_tier": kareem_tier},
         situation_breakdown=situation_breakdown,
         return_situation_breakdown=return_situation_breakdown,
         role_breakdown=role_breakdown,

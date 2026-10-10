@@ -47,6 +47,16 @@ def build_workbook(parsed, result, summary, meta, situation_breakdown=None, retu
     ws0.append(["ملف الحركة", meta.get("ledger_file_name", "")])
     if meta.get("redistribution_file_name"):
         ws0.append(["ملف إعادة توزيع مستقل (ميزة اختيارية)", meta.get("redistribution_file_name", "")])
+    # تصحيح 2026-10-10 (طلب المستخدم الصريح — راجع توثيق MOTO_NAME_OVERRIDES
+    # بـengine.py): إن اختار المستخدم قراراً إدارياً صريحاً لهذا التشغيل
+    # لمراد علوش/كريم هاشم، يظهر هنا بالملخص بدل أن يبقى مخفياً — القرار
+    # يُطبَّق على كل حالات ذاك الموزع هذا التشغيل (منفرد/شخصان/مجموعة).
+    _TIER_LABEL_AR = {"car": "سيارة", "moto": "دراجة"}
+    for key, person in (("murad_alloush_tier", "مراد علوش"), ("kareem_hashem_tier", "كريم هاشم")):
+        choice = meta.get(key, "auto")
+        if choice and choice != "auto":
+            ws0.append([f"قرار إداري صريح لهذا التشغيل — {person}",
+                        f"{_TIER_LABEL_AR.get(choice, choice)} (يُطبَّق على كل حالاته هذا التشغيل)"])
     ws0.append(["عدد حركات التحصيل النقدي المحتسبة", summary["rows_count"]])
     ws0.append(["عدد حركات المرتجع المحتسبة", summary["return_rows_count"]])
     ws0.append(["عدد الموزعين", summary["distributors_count"]])
@@ -98,7 +108,11 @@ def build_workbook(parsed, result, summary, meta, situation_breakdown=None, retu
         parts_str = "، ".join(
             f"{p.name} ({TIER_LABEL.get(p.tier, p.tier)}"
             f"{'، من البيان' if p.role_col is None else ''}"
-            f"{'، مطابقة تقريبية ⚠' if p.match_kind == 'fuzzy' else ''})"
+            f"{'، مطابقة تقريبية ⚠' if p.match_kind == 'fuzzy' else ''}"
+            # تصحيح 2026-10-10: يوضّح أن فئة هذا المشارك بهذه الحركة مفروضة
+            # بقرار إداري صريح لهذا التشغيل (راجع forms.py/engine.py)، لا
+            # مُستنتَجة من عموده الخام — للشفافية وعدم إخفاء القرار صامتاً.
+            f"{'، قرار إداري لهذا التشغيل' if getattr(p, 'tier_forced', False) else ''})"
             for p in row.participants
         )
         ws2.append([row.bayan, float(row.debit), len(row.participants), parts_str])
@@ -117,7 +131,10 @@ def build_workbook(parsed, result, summary, meta, situation_breakdown=None, retu
     # بتوثيق parse_distributor_file.
     _header(ws3, ["البيان", "المصدر", "المبلغ", "عدد المشاركين", "المشاركون"])
     for row in parsed.return_rows:
-        parts_str = "، ".join(p.name for p in row.participants)
+        parts_str = "، ".join(
+            f"{p.name}{' (قرار إداري لهذا التشغيل)' if getattr(p, 'tier_forced', False) else ''}"
+            for p in row.participants
+        )
         ws3.append([row.bayan, row.source, float(row.amount), len(row.participants), parts_str])
     for i, w in enumerate([40, 30, 16, 14, 60], start=1):
         ws3.column_dimensions[get_column_letter(i)].width = w
